@@ -12,18 +12,28 @@ from ragas.llms import LangchainLLM
 from ragas.metrics.base import EvaluationMode, MetricWithLLM, llm_factory
 
 CRITIQUE_PROMPT = HumanMessagePromptTemplate.from_template(
-    """Given a input and submission. Evaluate the submission only using the given criteria. 
-Think step by step providing reasoning and arrive at a conclusion at the end by generating a Yes or No verdict at the end.
+    """<instructions>
+Given a input and submission. Evaluate the submission only using the given criteria. 
+Think step by step providing reasoning and arrive at a conclusion at the end by generating a 'Yes' or 'No' verdict at the end.
+</instructions>
 
-input: Who was the director of Los Alamos Laboratory?
-submission: Einstein was the director of  Los Alamos Laboratory.
-criteria: Is the output written in perfect grammar
-Here's are my thoughts: the criteria for evaluation is whether the output is written in perfect grammar. In this case, the output is grammatically correct. Therefore, the answer is:\n\nYes
+<example_input>
+<input>Who was the director of Los Alamos Laboratory?</input>
+<submission>Einstein was the director of  Los Alamos Laboratory.</submission>
+<criteria>Is the output written in perfect grammar</criteria>
+</example_input>
 
-input:{input}
-submission:{submission}
-criteria:{criteria}
-Here's are my thoughts:
+<example_response>
+Here are my thoughts: the criteria for evaluation is whether the output is written in perfect grammar. In this case, the output is grammatically correct. Therefore, the answer is:
+
+Yes
+</example_response>
+
+<input>{input}</input>
+<submission>{submission}</submission>
+<criteria>{criteria}</criteria>
+
+Assistant: Here are my thoughts:
 """  # noqa: E501
 )
 
@@ -106,6 +116,7 @@ class AspectCritique(MetricWithLLM):
         ) as batch_group:
             for question, context, answer in zip(questions, contexts, answers):
                 human_prompt = self.prompt_format(question, answer, context)
+                print(f"CRITIQUE_PROMPT:\n{human_prompt.content}")
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             results = self.llm.generate(
@@ -116,6 +127,7 @@ class AspectCritique(MetricWithLLM):
             responses: list[list[str]] = [
                 [i.text for i in r] for r in results.generations
             ]
+            print(f"responses[0][0]:\n{responses[0][0]}")
 
             scores = []
             answer_dict = {"Yes": 1, "No": 0}
