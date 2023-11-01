@@ -24,15 +24,32 @@ context:\n{context}
 candidate sentences:\n"""  # noqa: E501
 )
 
-CONTEXT_PRECISION = HumanMessagePromptTemplate.from_template(
-    """\
-Given a question and a context, verify if the information in the given context is useful in answering the question. Return a Yes/No answer.
-question:{question}
-context:\n{context}
-answer:
-"""  # noqa: E501
-)
+# CONTEXT_PRECISION = HumanMessagePromptTemplate.from_template(
+#     """\
+# Given a question and a context, verify if the information in the given context is useful in answering the question. Return a Yes/No answer.
+# question:{question}
+# context:\n{context}
+# answer:
+# """  # noqa: E501
+# )
 
+CONTEXT_PRECISION = HumanMessagePromptTemplate.from_template(
+    """<instructions>Given a question and a context, verify if the information in the given context is useful in answering the question. 
+Answer only with a single word of either "Yes" or "No" and nothing else.</instructions>
+
+<example_input>
+<question>What is the significance of the Statue of Liberty in New York City?</question>
+<context>The Statue of Liberty National Monument and Ellis Island Immigration Museum are managed by the National Park Service and are in both New York and New Jersey. They are joined in the harbor by Governors Island National Monument. Historic sites under federal management on Manhattan Island include Stonewall National Monument; Castle Clinton National Monument; Federal Hall National Memorial; Theodore Roosevelt Birthplace National Historic Site; General Grant National Memorial (Grant's Tomb); African Burial Ground National Monument; and Hamilton Grange National Memorial. Hundreds of properties are listed on the National Register of Historic Places or as a National Historic Landmark.</context>
+</example_input>
+
+<example_response>yes</example_response>
+
+Here is the question and context for you to analyze:
+<question>{question}</question>
+<context>{context}</context>
+
+Assistant: The single word answer is: """  # noqa: E501
+)
 
 seg = pysbd.Segmenter(language="en", clean=False)
 
@@ -158,6 +175,9 @@ class ContextRelevancy(MetricWithLLM):
                 n=self.strictness,
                 callbacks=batch_group,
             )
+
+            print(results)
+
             responses = [[i.text for i in r] for r in results.generations]
 
             scores = []
@@ -220,6 +240,8 @@ class ContextPrecision(MetricWithLLM):
                     )
                     for c in ctx
                 ]
+                for human_prompt in human_prompts:
+                    print(f"human_prompt: {human_prompt.messages[0].content}")
 
                 prompts.extend(human_prompts)
 
@@ -229,7 +251,7 @@ class ContextPrecision(MetricWithLLM):
                 n=1,
                 callbacks=batch_group,
             )
-            responses = [[i.text for i in r] for r in results.generations]
+            responses = [[i.text.strip() for i in r] for r in results.generations]
             context_lens = [len(ctx) for ctx in contexts]
             context_lens.insert(0, 0)
             context_lens = np.cumsum(context_lens)
@@ -240,6 +262,7 @@ class ContextPrecision(MetricWithLLM):
             scores = []
 
             for response in grouped_responses:
+                print(f"response: {response}")
                 response = [int("Yes" in resp) for resp in response]
                 denominator = sum(response) + 1e-10
                 numerator = sum(
