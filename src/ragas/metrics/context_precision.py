@@ -42,7 +42,7 @@ Answer only with a single word of either "Yes" or "No" and nothing else.</instru
 <context>The Statue of Liberty National Monument and Ellis Island Immigration Museum are managed by the National Park Service and are in both New York and New Jersey. They are joined in the harbor by Governors Island National Monument. Historic sites under federal management on Manhattan Island include Stonewall National Monument; Castle Clinton National Monument; Federal Hall National Memorial; Theodore Roosevelt Birthplace National Historic Site; General Grant National Memorial (Grant's Tomb); African Burial Ground National Monument; and Hamilton Grange National Memorial. Hundreds of properties are listed on the National Register of Historic Places or as a National Historic Landmark.</context>
 </example_input>
 
-<example_response>yes</example_response>
+<example_response>Yes</example_response>
 
 Here is the question and context for you to analyze:
 <question>{question}</question>
