@@ -18,15 +18,36 @@ if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
 
+# QUESTION_GEN = HumanMessagePromptTemplate.from_template(
+#     """
+# Generate question for the given answer.
+# Answer:\nThe PSLV-C56 mission is scheduled to be launched on Sunday, 30 July 2023 at 06:30 IST / 01:00 UTC. It will be launched from the Satish Dhawan Space Centre, Sriharikota, Andhra Pradesh, India 
+# Question: When is the scheduled launch date and time for the PSLV-C56 mission, and where will it be launched from?
+
+# Answer:{answer}
+# Question:
+# """  # noqa: E501
+# )
+
 QUESTION_GEN = HumanMessagePromptTemplate.from_template(
     """
-Generate question for the given answer.
-Answer:\nThe PSLV-C56 mission is scheduled to be launched on Sunday, 30 July 2023 at 06:30 IST / 01:00 UTC. It will be launched from the Satish Dhawan Space Centre, Sriharikota, Andhra Pradesh, India 
-Question: When is the scheduled launch date and time for the PSLV-C56 mission, and where will it be launched from?
+<instructions>
+Generate question for the given answer. Follow the exact output format as shown in the example response. Do not add anything extra in the response!
+</instructions>
 
-Answer:{answer}
-Question:
-"""  # noqa: E501
+<example_input>
+<answer>The PSLV-C56 mission is scheduled to be launched on Sunday, 30 July 2023 at 06:30 IST / 01:00 UTC. It will be launched from the Satish Dhawan Space Centre, Sriharikota, Andhra Pradesh, India</answer>
+</example_input>
+
+<example_response>
+Question: When is the scheduled launch date and time for the PSLV-C56 mission, and where will it be launched from?
+</example_response>
+
+Here is the input:
+<answer>{answer}</answer>
+
+Assistant:
+Question: """  # noqa: E501
 )
 
 
@@ -82,6 +103,7 @@ class AnswerRelevancy(MetricWithLLM):
             prompts = []
             for ans in answers:
                 human_prompt = QUESTION_GEN.format(answer=ans)
+                print(f"QUESTION_GEN:\n{human_prompt.content}")
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             results = self.llm.generate(
@@ -90,7 +112,7 @@ class AnswerRelevancy(MetricWithLLM):
                 callbacks=batch_group,
             )
             results = [[i.text for i in r] for r in results.generations]
-
+            print(f"results[0]:\n{results[0]}")
             scores = []
             for question, gen_questions in zip(questions, results):
                 cosine_sim = self.calculate_similarity(question, gen_questions)
