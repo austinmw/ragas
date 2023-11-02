@@ -176,7 +176,7 @@ class ContextRelevancy(MetricWithLLM):
                 callbacks=batch_group,
             )
 
-            print(results)
+            #print(results)
 
             responses = [[i.text for i in r] for r in results.generations]
 
@@ -241,7 +241,7 @@ class ContextPrecision(MetricWithLLM):
                     for c in ctx
                 ]
                 for human_prompt in human_prompts:
-                    print(f"human_prompt: {human_prompt.messages[0].content}")
+                    #print(f"human_prompt: {human_prompt.messages[0].content}")
 
                 prompts.extend(human_prompts)
 
@@ -262,7 +262,7 @@ class ContextPrecision(MetricWithLLM):
             scores = []
 
             for response in grouped_responses:
-                print(f"response: {response}")
+                #print(f"response: {response}")
                 response = [int("Yes" in resp) for resp in response]
                 denominator = sum(response) + 1e-10
                 numerator = sum(
