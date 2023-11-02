@@ -163,11 +163,11 @@ class Faithfulness(MetricWithLLM):
         ) as batch_group:
             for q, a in zip(question, answer):
                 human_prompt = LONG_FORM_ANSWER_PROMPT.format(question=q, answer=a)
-                print(f"LONG_FORM_ANSWER_PROMPT: {human_prompt.content}")
+                #print(f"LONG_FORM_ANSWER_PROMPT: {human_prompt.content}")
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             result = self.llm.generate(prompts, callbacks=batch_group)
-            print(f"RESULT {len(result.generations)}:\n{result.generations[0][0].text}")
+            #print(f"RESULT {len(result.generations)}:\n{result.generations[0][0].text}")
             list_statements: list[list[str]] = []
             for output in result.generations:
                 # use only the first generation for each prompt
@@ -183,11 +183,11 @@ class Faithfulness(MetricWithLLM):
                 human_prompt = NLI_STATEMENTS_MESSAGE.format(
                     context=contexts_str, statements=statements_str
                 )
-                print(f"\n\nNLI_STATEMENTS_MESSAGE: {human_prompt.content}")
+                #print(f"\n\nNLI_STATEMENTS_MESSAGE: {human_prompt.content}")
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             result = self.llm.generate(prompts, callbacks=batch_group)
-            print(f"RESULT {len(result.generations)}:\n{result.generations[0][0].text}")
+            #print(f"RESULT {len(result.generations)}:\n{result.generations[0][0].text}")
             outputs = result.generations
 
             scores = []
