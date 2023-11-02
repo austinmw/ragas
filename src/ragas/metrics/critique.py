@@ -116,7 +116,7 @@ class AspectCritique(MetricWithLLM):
         ) as batch_group:
             for question, context, answer in zip(questions, contexts, answers):
                 human_prompt = self.prompt_format(question, answer, context)
-                print(f"CRITIQUE_PROMPT:\n{human_prompt.content}")
+                #print(f"CRITIQUE_PROMPT:\n{human_prompt.content}")
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             results = self.llm.generate(
@@ -127,7 +127,7 @@ class AspectCritique(MetricWithLLM):
             responses: list[list[str]] = [
                 [i.text for i in r] for r in results.generations
             ]
-            print(f"responses[0][0]:\n{responses[0][0]}")
+            #print(f"responses[0][0]:\n{responses[0][0]}")
 
             scores = []
             answer_dict = {"Yes": 1, "No": 0}
