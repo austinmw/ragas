@@ -240,7 +240,7 @@ class ContextPrecision(MetricWithLLM):
                     )
                     for c in ctx
                 ]
-                for human_prompt in human_prompts:
+                #for human_prompt in human_prompts:
                     #print(f"human_prompt: {human_prompt.messages[0].content}")
 
                 prompts.extend(human_prompts)
