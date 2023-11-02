@@ -142,7 +142,7 @@ class ContextRecall(MetricWithLLM):
                 sentences = response[0].split("\n")
                 sentences = [s for s in sentences if s.strip()]
 
-                for sentence in sentences:
+                #for sentence in sentences:
                     #print(f"sentence: {sentence}")
 
                 denom = len(sentences)
