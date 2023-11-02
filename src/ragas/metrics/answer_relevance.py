@@ -103,7 +103,7 @@ class AnswerRelevancy(MetricWithLLM):
             prompts = []
             for ans in answers:
                 human_prompt = QUESTION_GEN.format(answer=ans)
-                print(f"QUESTION_GEN:\n{human_prompt.content}")
+                #print(f"QUESTION_GEN:\n{human_prompt.content}")
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             results = self.llm.generate(
@@ -112,7 +112,7 @@ class AnswerRelevancy(MetricWithLLM):
                 callbacks=batch_group,
             )
             results = [[i.text for i in r] for r in results.generations]
-            print(f"results[0]:\n{results[0]}")
+            #print(f"results[0]:\n{results[0]}")
             scores = []
             for question, gen_questions in zip(questions, results):
                 cosine_sim = self.calculate_similarity(question, gen_questions)
