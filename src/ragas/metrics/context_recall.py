@@ -124,7 +124,7 @@ class ContextRecall(MetricWithLLM):
                 gt = "\n".join(gt) if isinstance(gt, list) else gt
                 ctx = "\n".join(ctx) if isinstance(ctx, list) else ctx
                 human_prompt = CONTEXT_RECALL_RA.format(context=ctx, ground_truth=gt)
-                print(f"human_prompt: {human_prompt.content}")
+                #print(f"human_prompt: {human_prompt.content}")
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             responses: list[list[str]] = []
@@ -135,7 +135,7 @@ class ContextRecall(MetricWithLLM):
             )
             responses = [[i.text for i in r] for r in results.generations]
 
-            print(f"response[0]:\n{responses[0][0]}")
+            #print(f"response[0]:\n{responses[0][0]}")
 
             scores = []
             for response in responses:
@@ -143,10 +143,10 @@ class ContextRecall(MetricWithLLM):
                 sentences = [s for s in sentences if s.strip()]
 
                 for sentence in sentences:
-                    print(f"sentence: {sentence}")
+                    #print(f"sentence: {sentence}")
 
                 denom = len(sentences)
-                print(f"denom: {denom}")
+                #print(f"denom: {denom}")
                 numerator = sum(
                     bool(sentence.find(verdict_token) != -1) for sentence in sentences
                 )
