@@ -14,7 +14,7 @@ from ragas.metrics.base import EvaluationMode, MetricWithLLM
 if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
-logger = logging.getLogger("Evaluation-Tab")
+logger = logging.getLogger("Evaluation-Tab", level=logging.DEBUG)
 
 @dataclass
 class AnswerSimilarity(MetricWithLLM):
@@ -73,4 +73,4 @@ class AnswerSimilarity(MetricWithLLM):
         return scores.tolist()
 
 
-answer_similarity = AnswerSimilarity()
+#answer_similarity = AnswerSimilarity()

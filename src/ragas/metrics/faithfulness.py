@@ -12,7 +12,7 @@ from ragas.metrics.base import EvaluationMode, MetricWithLLM
 if t.TYPE_CHECKING:
     from datasets import Dataset
 
-logger = logging.getLogger("Evaluation-Tab")
+logger = logging.getLogger("Evaluation-Tab", level=logging.DEBUG)
 
 #################
 # NLI Score
@@ -250,4 +250,4 @@ class Faithfulness(MetricWithLLM):
         return scores
 
 
-faithfulness = Faithfulness()
+#faithfulness = Faithfulness()

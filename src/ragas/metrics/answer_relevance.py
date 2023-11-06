@@ -19,7 +19,7 @@ from ragas.metrics.base import EvaluationMode, MetricWithLLM
 if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
-logger = logging.getLogger("Evaluation-Tab")
+logger = logging.getLogger("Evaluation-Tab", level=logging.DEBUG)
 
 # QUESTION_GEN = HumanMessagePromptTemplate.from_template(
 #     """
@@ -150,4 +150,4 @@ class AnswerRelevancy(MetricWithLLM):
         )
 
 
-answer_relevancy = AnswerRelevancy()
+#answer_relevancy = AnswerRelevancy()

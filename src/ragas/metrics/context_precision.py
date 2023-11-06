@@ -16,7 +16,7 @@ from sentence_transformers import CrossEncoder
 
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
 
-logger = logging.getLogger("Evaluation-Tab")
+logger = logging.getLogger("Evaluation-Tab", level=logging.DEBUG)
 
 CONTEXT_RELEVANCE = HumanMessagePromptTemplate.from_template(
     """\
@@ -289,5 +289,5 @@ class ContextPrecision(MetricWithLLM):
         return scores
 
 
-context_precision = ContextPrecision()
-context_relevancy = ContextRelevancy()
+#context_precision = ContextPrecision()
+#context_relevancy = ContextRelevancy()

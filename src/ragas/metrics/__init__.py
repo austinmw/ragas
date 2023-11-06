@@ -1,38 +1,38 @@
-from ragas.metrics.answer_correctness import AnswerCorrectness, answer_correctness
-from ragas.metrics.answer_relevance import AnswerRelevancy, answer_relevancy
-from ragas.metrics.answer_similarity import AnswerSimilarity, answer_similarity
+from ragas.metrics.answer_correctness import AnswerCorrectness #, answer_correctness
+from ragas.metrics.answer_relevance import AnswerRelevancy #, answer_relevancy
+from ragas.metrics.answer_similarity import AnswerSimilarity #, answer_similarity
 from ragas.metrics.context_precision import (
     ContextPrecision,
     ContextRelevancy,
-    context_precision,
-    context_relevancy,
+    #context_precision,
+    #context_relevancy,
 )
-from ragas.metrics.context_recall import ContextRecall, context_recall
+from ragas.metrics.context_recall import ContextRecall #, context_recall
 from ragas.metrics.critique import AspectCritique
-from ragas.metrics.faithfulness import Faithfulness, faithfulness
+from ragas.metrics.faithfulness import Faithfulness #, faithfulness
 
-DEFAULT_METRICS = [
-    answer_relevancy,
-    context_precision,
-    faithfulness,
-    context_recall,
-    context_relevancy,
-]
+# DEFAULT_METRICS = [
+#     answer_relevancy,
+#     context_precision,
+#     faithfulness,
+#     context_recall,
+#     context_relevancy,
+# ]
 
 __all__ = [
     "Faithfulness",
-    "faithfulness",
+    #"faithfulness",
     "AnswerRelevancy",
-    "answer_relevancy",
+    #"answer_relevancy",
     "AnswerSimilarity",
-    "answer_similarity",
+    #"answer_similarity",
     "AnswerCorrectness",
-    "answer_correctness",
+    #"answer_correctness",
     "ContextRelevancy",
-    "context_relevancy",
+    #"context_relevancy",
     "ContextPrecision",
-    "context_precision",
+    #"context_precision",
     "AspectCritique",
     "ContextRecall",
-    "context_recall",
+    #"context_recall",
 ]

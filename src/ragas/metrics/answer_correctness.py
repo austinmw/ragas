@@ -82,4 +82,4 @@ class AnswerCorrectness(MetricWithLLM):
         return scores.tolist()
 
 
-answer_correctness = AnswerCorrectness()
+#answer_correctness = AnswerCorrectness()

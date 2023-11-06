@@ -11,7 +11,7 @@ from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
 
-logger = logging.getLogger("Evaluation-Tab")
+logger = logging.getLogger("Evaluation-Tab", level=logging.DEBUG)
 
 # CONTEXT_RECALL_RA = HumanMessagePromptTemplate.from_template(
 #     """
@@ -169,4 +169,4 @@ class ContextRecall(MetricWithLLM):
         return scores
 
 
-context_recall = ContextRecall()
+#context_recall = ContextRecall()
