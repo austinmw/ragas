@@ -15,7 +15,8 @@ from ragas.metrics.faithfulness import Faithfulness
 if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
-logger = logging.getLogger("Evaluation-Tab", level=logging.DEBUG)
+logger = logging.getLogger("Evaluation-Tab")
+logger.setLevel(logging.DEBUG)
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
 logger.addHandler(handler)
