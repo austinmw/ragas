@@ -15,7 +15,7 @@ from ragas.metrics.faithfulness import Faithfulness
 if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
-logger = logging.getLogger("Evaluation-Tab")
+logger = logging.getLogger("Evaluation-Tab", level=logging.DEBUG)
 
 @dataclass
 class AnswerCorrectness(MetricWithLLM):
