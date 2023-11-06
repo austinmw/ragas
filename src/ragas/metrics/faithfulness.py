@@ -12,7 +12,7 @@ from ragas.metrics.base import EvaluationMode, MetricWithLLM
 if t.TYPE_CHECKING:
     from datasets import Dataset
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("Evaluation-Tab")
 
 #################
 # NLI Score

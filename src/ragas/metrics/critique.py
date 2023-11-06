@@ -13,10 +13,7 @@ from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from ragas.llms import LangchainLLM
 from ragas.metrics.base import EvaluationMode, MetricWithLLM, llm_factory
 
-logger = logging.Logger("critique", level=logging.INFO)
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
-logger.addHandler(handler)
+logger = logging.getLogger("Evaluation-Tab")
 
 CRITIQUE_PROMPT = HumanMessagePromptTemplate.from_template(
     """<instructions>
