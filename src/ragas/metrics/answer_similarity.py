@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import logging
 import typing as t
 from dataclasses import dataclass
@@ -13,7 +14,10 @@ from ragas.metrics.base import EvaluationMode, MetricWithLLM
 if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
-logger = logging.getLogger(__name__)
+logger = logging.Logger("answer_similarity", level=logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
+logger.addHandler(handler)
 
 @dataclass
 class AnswerSimilarity(MetricWithLLM):

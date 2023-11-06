@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import logging
 import typing as t
 from dataclasses import dataclass
@@ -10,7 +11,10 @@ from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
 
-logger = logging.getLogger(__name__)
+logger = logging.Logger("context_recall", level=logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
+logger.addHandler(handler)
 
 # CONTEXT_RECALL_RA = HumanMessagePromptTemplate.from_template(
 #     """

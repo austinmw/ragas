@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import logging
 import typing as t
 from dataclasses import dataclass
@@ -15,7 +16,10 @@ from sentence_transformers import CrossEncoder
 
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
 
-logger = logging.getLogger(__name__)
+logger = logging.Logger("context_precision", level=logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
+logger.addHandler(handler)
 
 CONTEXT_RELEVANCE = HumanMessagePromptTemplate.from_template(
     """\

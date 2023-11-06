@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import logging
 import os
 import typing as t
@@ -18,7 +19,10 @@ from ragas.metrics.base import EvaluationMode, MetricWithLLM
 if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
-logger = logging.getLogger(__name__)
+logger = logging.Logger("answer_relevance", level=logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
+logger.addHandler(handler)
 
 # QUESTION_GEN = HumanMessagePromptTemplate.from_template(
 #     """

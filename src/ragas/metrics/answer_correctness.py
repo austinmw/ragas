@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import logging
 import typing as t
 from dataclasses import dataclass, field
@@ -14,7 +15,10 @@ from ragas.metrics.faithfulness import Faithfulness
 if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
-logger = logging.getLogger(__name__)
+logger = logging.Logger("answer_correctness", level=logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
+logger.addHandler(handler)
 
 @dataclass
 class AnswerCorrectness(MetricWithLLM):

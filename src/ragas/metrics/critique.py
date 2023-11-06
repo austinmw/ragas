@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import logging
 import typing as t
 from collections import Counter
@@ -12,7 +13,10 @@ from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from ragas.llms import LangchainLLM
 from ragas.metrics.base import EvaluationMode, MetricWithLLM, llm_factory
 
-logger = logging.getLogger(__name__)
+logger = logging.Logger("critique", level=logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
+logger.addHandler(handler)
 
 CRITIQUE_PROMPT = HumanMessagePromptTemplate.from_template(
     """<instructions>
