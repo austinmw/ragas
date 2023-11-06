@@ -271,7 +271,9 @@ class ContextPrecision(MetricWithLLM):
             for n, response in enumerate(grouped_responses):
                 # Log the model responses
                 logger.debug(f"ContextPrecision: response {n}:\n{response}")
-                response = [int("yes" in resp.lower()) for resp in response]
+                #response = [int("yes" in resp) for resp in response]
+                response = [int(any("yes" == word.lower() for word in resp)) \
+                            for resp in response]
                 # Log boolean responses
                 logger.debug(f"ContextPrecision: response {n} matches:\n{response}")
                 denominator = sum(response) + 1e-10
