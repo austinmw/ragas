@@ -13,6 +13,9 @@ if t.TYPE_CHECKING:
     from datasets import Dataset
 
 logger = logging.getLogger("Evaluation-Tab", level=logging.DEBUG)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
+logger.addHandler(handler)
 
 #################
 # NLI Score

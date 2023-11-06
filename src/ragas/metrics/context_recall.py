@@ -12,6 +12,9 @@ from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
 
 logger = logging.getLogger("Evaluation-Tab", level=logging.DEBUG)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
+logger.addHandler(handler)
 
 # CONTEXT_RECALL_RA = HumanMessagePromptTemplate.from_template(
 #     """
