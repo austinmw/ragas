@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing as t
 from collections import Counter
 from dataclasses import dataclass, field
@@ -10,6 +11,8 @@ from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 
 from ragas.llms import LangchainLLM
 from ragas.metrics.base import EvaluationMode, MetricWithLLM, llm_factory
+
+logger = logging.getLogger(__name__)
 
 CRITIQUE_PROMPT = HumanMessagePromptTemplate.from_template(
     """<instructions>
@@ -114,9 +117,11 @@ class AspectCritique(MetricWithLLM):
         with trace_as_chain_group(
             callback_group_name, callback_manager=callbacks
         ) as batch_group:
-            for question, context, answer in zip(questions, contexts, answers):
+            for n, (question, context, answer) in enumerate(zip(questions, contexts, answers)):
                 human_prompt = self.prompt_format(question, answer, context)
-                #print(f"CRITIQUE_PROMPT:\n{human_prompt.content}")
+                # Log the human prompts
+                logger.debug((f"AspectCritique: human_prompt.content {n}:\n"
+                              f"{human_prompt.content}"))
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             results = self.llm.generate(
@@ -127,19 +132,23 @@ class AspectCritique(MetricWithLLM):
             responses: list[list[str]] = [
                 [i.text for i in r] for r in results.generations
             ]
+
             #print(f"responses[0][0]:\n{responses[0][0]}")
 
             scores = []
-            answer_dict = {"Yes": 1, "No": 0}
-            for response in responses:
+            answer_dict = {"yes": 1, "no": 0}
+            for n, response in enumerate(responses):
+                # Log the response
+                logger.debug(f"AspectCritique: response {n}:\n{response}")
                 response = [(text, text.split("\n\n")[-1]) for text in response]
+                logger.debug(f"AspectCritique: parsed response tuples {n}:\n{response}")
                 if self.strictness > 1:
                     score = Counter(
                         [answer_dict.get(item[-1], 0) for item in response]
                     ).most_common(1)[0][0]
                 else:
-                    score = answer_dict.get(response[0][-1])
-
+                    score = answer_dict.get(response[0][-1].lower())
+                logger.debug(f"AspectCritique: score {n}:\n{score}")
                 scores.append(score)
 
         return scores

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing as t
 from dataclasses import dataclass, field
 
@@ -13,6 +14,7 @@ from ragas.metrics.faithfulness import Faithfulness
 if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class AnswerCorrectness(MetricWithLLM):
@@ -65,6 +67,8 @@ class AnswerCorrectness(MetricWithLLM):
         ds_faithfulness = ds_faithfulness.rename_columns({"ground_truths": "contexts"})
         faith_scores = self.faithfulness._score_batch(ds_faithfulness)  # type: ignore
         similarity_scores = self.answer_similarity._score_batch(dataset)  # type: ignore
+        logger.debug(f"AnswerCorrectness: faithfulness scores: {faith_scores}")
+        logger.debug(f"AnswerCorrectness: similarity scores: {similarity_scores}")
 
         scores_stacked = np.vstack([faith_scores, similarity_scores])
         scores = np.average(
@@ -72,6 +76,7 @@ class AnswerCorrectness(MetricWithLLM):
             axis=0,
             weights=self.weights,
         )
+        logger.debug(f"AnswerCorrectness: weighted scores: {scores}")
 
         return scores.tolist()
 

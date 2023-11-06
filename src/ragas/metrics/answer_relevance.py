@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import typing as t
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from ragas.metrics.base import EvaluationMode, MetricWithLLM
 if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
+logger = logging.getLogger(__name__)
 
 # QUESTION_GEN = HumanMessagePromptTemplate.from_template(
 #     """
@@ -101,9 +103,11 @@ class AnswerRelevancy(MetricWithLLM):
             callback_group_name, callback_manager=callbacks
         ) as batch_group:
             prompts = []
-            for ans in answers:
+            for n, ans in enumerate(answers):
                 human_prompt = QUESTION_GEN.format(answer=ans)
-                #print(f"QUESTION_GEN:\n{human_prompt.content}")
+                # Log the human prompts
+                logger.debug((f"AnswerRelevancy: human_prompt.content {n}:\n"
+                              f"{human_prompt.content}"))
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             results = self.llm.generate(
@@ -114,9 +118,15 @@ class AnswerRelevancy(MetricWithLLM):
             results = [[i.text for i in r] for r in results.generations]
             #print(f"results[0]:\n{results[0]}")
             scores = []
-            for question, gen_questions in zip(questions, results):
+            for n, (question, gen_questions) in enumerate(zip(questions, results)):
+                logger.debug(f"AnswerRelevancy: question {n}:\n{question}")
+                logger.debug(f"AnswerRelevancy: gen_questions {n}:\n{gen_questions}")
                 cosine_sim = self.calculate_similarity(question, gen_questions)
-                scores.append(cosine_sim.mean())
+                logger.debug(f"AnswerRelevancy: cosine_sim {n}:\n{cosine_sim}")
+                cosine_sim_mean = cosine_sim.mean()
+                logger.debug((f"AnswerRelevancy: cosine_sim_mean {n}:\n"
+                              f"{cosine_sim_mean}"))
+                scores.append(cosine_sim_mean)
 
         return scores
 

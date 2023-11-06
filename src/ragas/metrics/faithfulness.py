@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing as t
 from dataclasses import dataclass
 
@@ -10,6 +11,8 @@ from ragas.metrics.base import EvaluationMode, MetricWithLLM
 
 if t.TYPE_CHECKING:
     from datasets import Dataset
+
+logger = logging.getLogger(__name__)
 
 #################
 # NLI Score
@@ -161,21 +164,30 @@ class Faithfulness(MetricWithLLM):
         with trace_as_chain_group(
             callback_group_name, callback_manager=callbacks
         ) as batch_group:
-            for q, a in zip(question, answer):
+            for n, (q, a) in enumerate(zip(question, answer)):
                 human_prompt = LONG_FORM_ANSWER_PROMPT.format(question=q, answer=a)
-                #print(f"LONG_FORM_ANSWER_PROMPT: {human_prompt.content}")
+                # Log human prompt
+                logger.debug((f"Faithfulness: LONG_FORM_ANSWER_PROMPT human_prompt.content {n}:\n"
+                              f"{human_prompt.content}"))
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             result = self.llm.generate(prompts, callbacks=batch_group)
-            #print(f"RESULT {len(result.generations)}:\n{result.generations[0][0].text}")
+
+
             list_statements: list[list[str]] = []
             for output in result.generations:
+                # Log result
+                logger.debug((f"Faithfulness: LONG_FORM_ANSWER_PROMPT result {n}:\n"
+                              f"{output[0].text}"))
                 # use only the first generation for each prompt
                 statements = output[0].text.split("\n")
+                # Log parsed statements
+                logger.debug((f"Faithfulness: LONG_FORM_ANSWER_PROMPT parsed statements"
+                              f"{n}:\n{statements}"))
                 list_statements.append(statements)
 
             prompts = []
-            for context, statements in zip(contexts, list_statements):
+            for n, (context, statements) in enumerate(zip(contexts, list_statements)):
                 statements_str: str = "\n".join(
                     [f"{i+1}.{st}" for i, st in enumerate(statements)]
                 )
@@ -183,7 +195,9 @@ class Faithfulness(MetricWithLLM):
                 human_prompt = NLI_STATEMENTS_MESSAGE.format(
                     context=contexts_str, statements=statements_str
                 )
-                #print(f"\n\nNLI_STATEMENTS_MESSAGE: {human_prompt.content}")
+                # Log human prompt
+                logger.debug((f"Faithfulness: NLI_STATEMENTS_MESSAGE "
+                              f"human_prompt.content {n}:\n{human_prompt.content}"))
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             result = self.llm.generate(prompts, callbacks=batch_group)
@@ -194,19 +208,42 @@ class Faithfulness(MetricWithLLM):
             final_answer = "Final verdict for each statement in order:"
             final_answer = final_answer.lower()
             for i, output in enumerate(outputs):
+                # Log result
+                logger.debug((f"Faithfulness: NLI_STATEMENTS_MESSAGE result {i}:\n"
+                              f"{output[0].text}"))
                 output = output[0].text.lower().strip()
+                logger.debug((f"Faithfulness: NLI_STATEMENTS_MESSAGE parsed output"
+                              f"{i}:\n{output}"))
                 if output.find(final_answer) != -1:
+                    logger.debug((f"Faithfulness: found '{final_answer}' in output {i}"))
                     output = output[output.find(final_answer) + len(final_answer) :]
+                    logger.debug((f"Faithfulness: output {i} after removing the "
+                                  f"final answer: {output}"))
                     score = sum(
                         0 if "yes" in answer else 1
                         for answer in output.strip().split(".")
                         if answer != ""
                     )
+                    # Log the raw score before normalization
+                    logger.debug((f"Faithfulness: raw score before normalization:"
+                                  f"{score}"))
+
                     score = score / len(list_statements[i])
+
+                    # Log the normalized score
+                    logger.debug((f"Faithfulness: normalized score: {score}"))
                 else:
+                    # Log that the final answer was not found in the output
+                    logger.debug((f"Faithfulness: '{final_answer}' not found in output."
+                                  " Calculating score based on 'verdict: no'."))
+
                     score = max(0, output.count("verdict: no")) / len(
                         list_statements[i]
                     )
+
+                # Log the score to be appended to scores list
+                logger.debug((f"Faithfulness: score to be appended for statement{i}:"
+                              f" {1 - score}"))
 
                 scores.append(1 - score)
 

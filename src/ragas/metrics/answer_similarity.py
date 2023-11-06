@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing as t
 from dataclasses import dataclass
 
@@ -12,6 +13,7 @@ from ragas.metrics.base import EvaluationMode, MetricWithLLM
 if t.TYPE_CHECKING:
     from langchain.callbacks.manager import CallbackManager
 
+logger = logging.getLogger(__name__)
 
 @dataclass
 class AnswerSimilarity(MetricWithLLM):
@@ -53,13 +55,19 @@ class AnswerSimilarity(MetricWithLLM):
         ground_truths, answers = dataset["ground_truths"], dataset["answer"]
         ground_truths = [item[0] for item in ground_truths]
         inputs = [list(item) for item in list(zip(ground_truths, answers))]
+        # Log threshold
+        logger.debug((f"AnswerSimilarity: threshold: {self.threshold}"))
         scores = self.cross_encoder.predict(
             inputs, batch_size=self.batch_size, convert_to_numpy=True
         )
+        # Log scores
+        logger.debug((f"AnswerSimilarity: scores: {scores}"))
 
         assert isinstance(scores, np.ndarray), "Expects ndarray"
         if self.threshold:
             scores = scores >= self.threshold  # type: ignore
+        # Log thresholded scores
+        logger.debug((f"AnswerSimilarity: thresholded scores: {scores}"))
 
         return scores.tolist()
 

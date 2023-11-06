@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import typing as t
 from dataclasses import dataclass
 
@@ -8,6 +9,8 @@ from langchain.callbacks.manager import CallbackManager, trace_as_chain_group
 from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
+
+logger = logging.getLogger(__name__)
 
 # CONTEXT_RECALL_RA = HumanMessagePromptTemplate.from_template(
 #     """
@@ -27,6 +30,7 @@ from ragas.metrics.base import EvaluationMode, MetricWithLLM
 # classification:
 # """  # noqa: E501
 # )
+
 CONTEXT_RECALL_RA = HumanMessagePromptTemplate.from_template(
     """<instructions>
 Given a context, and an answer, first identify each individual sentence in the answer, then analyze each, and classify if the sentence can be attributed to the given context or not.
@@ -124,7 +128,10 @@ class ContextRecall(MetricWithLLM):
                 gt = "\n".join(gt) if isinstance(gt, list) else gt
                 ctx = "\n".join(ctx) if isinstance(ctx, list) else ctx
                 human_prompt = CONTEXT_RECALL_RA.format(context=ctx, ground_truth=gt)
-                #print(f"human_prompt: {human_prompt.content}")
+                # Log human prompt
+                logger.debug(("ContextRecall: human_prompt.content:\n"
+                              f"{human_prompt.content}")
+                )
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             responses: list[list[str]] = []
@@ -135,22 +142,28 @@ class ContextRecall(MetricWithLLM):
             )
             responses = [[i.text for i in r] for r in results.generations]
 
-            #print(f"response[0]:\n{responses[0][0]}")
+            # Log all responses
+            for n, response in enumerate(responses):
+                logger.debug(f"ContextRecall: response {n}:\n{response[0]}")
 
             scores = []
             for response in responses:
                 sentences = response[0].split("\n")
                 sentences = [s for s in sentences if s.strip()]
 
-                #for sentence in sentences:
-                    #print(f"sentence: {sentence}")
+                # Log all sentences
+                for n, sentence in enumerate(sentences):
+                    logger.debug(f"ContextRecall: sentence {n}:\n{sentence}")
 
-                denom = len(sentences)
-                #print(f"denom: {denom}")
+                denominator = len(sentences)
                 numerator = sum(
                     bool(sentence.find(verdict_token) != -1) for sentence in sentences
                 )
-                scores.append(numerator / denom)
+                score = numerator / denominator if denominator else 0.0
+                # Log denominator, numerator and score
+                logger.debug((f"ContextRecall: denominator: {denominator}, "
+                              f"numerator: {numerator}, score: {score}"))
+                scores.append(score)
 
         return scores
 

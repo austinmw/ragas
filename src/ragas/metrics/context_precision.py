@@ -15,6 +15,8 @@ from sentence_transformers import CrossEncoder
 
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
 
+logger = logging.getLogger(__name__)
+
 CONTEXT_RELEVANCE = HumanMessagePromptTemplate.from_template(
     """\
 Please extract relevant sentences from the provided context that is absolutely required answer the following question. If no relevant sentences are found, or if you believe the question cannot be answered from the given context, return the phrase "Insufficient Information".  While extracting candidate sentences you're not allowed to make any changes to sentences from given context.
@@ -175,9 +177,7 @@ class ContextRelevancy(MetricWithLLM):
                 n=self.strictness,
                 callbacks=batch_group,
             )
-
             #print(results)
-
             responses = [[i.text for i in r] for r in results.generations]
 
             scores = []
@@ -240,8 +240,11 @@ class ContextPrecision(MetricWithLLM):
                     )
                     for c in ctx
                 ]
-                #for human_prompt in human_prompts:
-                    #print(f"human_prompt: {human_prompt.messages[0].content}")
+
+                # Log the human prompts
+                for n, human_prompt in enumerate(human_prompts):
+                    logger.debug((f"ContextPrecision: human_prompt.content {n}:\n"
+                                  f"{human_prompt.messages[0].content}"))
 
                 prompts.extend(human_prompts)
 
@@ -261,9 +264,12 @@ class ContextPrecision(MetricWithLLM):
             ]
             scores = []
 
-            for response in grouped_responses:
-                #print(f"response: {response}")
-                response = [int("Yes" in resp) for resp in response]
+            for n, response in enumerate(grouped_responses):
+                # Log the model responses
+                logger.debug(f"ContextPrecision: response {n}:\n{response}")
+                response = [int("yes" in resp.lower()) for resp in response]
+                # Log boolean responses
+                logger.debug(f"ContextPrecision: response {n} matches:\n{response}")
                 denominator = sum(response) + 1e-10
                 numerator = sum(
                     [
@@ -271,7 +277,11 @@ class ContextPrecision(MetricWithLLM):
                         for i in range(len(response))
                     ]
                 )
-                scores.append(numerator / denominator)
+                score = numerator / denominator if denominator else 0
+                # Log denominator, numerator and score
+                logger.debug((f"ContextPrecision: denominator: {denominator}, "
+                              f"numerator: {numerator}, score: {score}"))
+                scores.append(score)
 
         return scores
 
