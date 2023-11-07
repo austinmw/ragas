@@ -129,12 +129,12 @@ class ContextRecall(MetricWithLLM):
         with trace_as_chain_group(
             callback_group_name, callback_manager=callbacks
         ) as batch_group:
-            for gt, ctx in zip(ground_truths, contexts):
+            for n, (gt, ctx) in enumerate(zip(ground_truths, contexts)):
                 gt = "\n".join(gt) if isinstance(gt, list) else gt
                 ctx = "\n".join(ctx) if isinstance(ctx, list) else ctx
                 human_prompt = CONTEXT_RECALL_RA.format(context=ctx, ground_truth=gt)
                 # Log human prompt
-                logger.debug(("ContextRecall: human_prompt.content:\n"
+                logger.debug((f"ContextRecall: human_prompt.content #{n}:\n"
                               f"{human_prompt.content}")
                 )
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
