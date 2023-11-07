@@ -172,7 +172,7 @@ class Faithfulness(MetricWithLLM):
             for n, (q, a) in enumerate(zip(question, answer)):
                 human_prompt = LONG_FORM_ANSWER_PROMPT.format(question=q, answer=a)
                 # Log human prompt
-                logger.debug((f"Faithfulness: LONG_FORM_ANSWER_PROMPT human_prompt.content {n}:\n"
+                logger.debug((f"Faithfulness: LONG_FORM_ANSWER_PROMPT human_prompt.content #{n}:\n"
                               f"{human_prompt.content}"))
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
@@ -182,13 +182,13 @@ class Faithfulness(MetricWithLLM):
             list_statements: list[list[str]] = []
             for output in result.generations:
                 # Log result
-                logger.debug((f"Faithfulness: LONG_FORM_ANSWER_PROMPT result {n}:\n"
+                logger.debug((f"Faithfulness: LONG_FORM_ANSWER_PROMPT result #{n}:\n"
                               f"{output[0].text}"))
                 # use only the first generation for each prompt
                 statements = output[0].text.split("\n")
                 # Log parsed statements
                 logger.debug((f"Faithfulness: LONG_FORM_ANSWER_PROMPT parsed statements"
-                              f"{n}:\n{statements}"))
+                              f"#{n}:\n{statements}"))
                 list_statements.append(statements)
 
             prompts = []
@@ -202,7 +202,7 @@ class Faithfulness(MetricWithLLM):
                 )
                 # Log human prompt
                 logger.debug((f"Faithfulness: NLI_STATEMENTS_MESSAGE "
-                              f"human_prompt.content {n}:\n{human_prompt.content}"))
+                              f"human_prompt.content #{n}:\n{human_prompt.content}"))
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             result = self.llm.generate(prompts, callbacks=batch_group)
@@ -214,15 +214,15 @@ class Faithfulness(MetricWithLLM):
             final_answer = final_answer.lower()
             for i, output in enumerate(outputs):
                 # Log result
-                logger.debug((f"Faithfulness: NLI_STATEMENTS_MESSAGE result {i}:\n"
+                logger.debug((f"Faithfulness: NLI_STATEMENTS_MESSAGE result #{i}:\n"
                               f"{output[0].text}"))
                 output = output[0].text.lower().strip()
                 logger.debug((f"Faithfulness: NLI_STATEMENTS_MESSAGE parsed output"
-                              f"{i}:\n{output}"))
+                              f"#{i}:\n{output}"))
                 if output.find(final_answer) != -1:
-                    logger.debug((f"Faithfulness: found '{final_answer}' in output {i}"))
+                    logger.debug((f"Faithfulness: found '{final_answer}' in output #{i}"))
                     output = output[output.find(final_answer) + len(final_answer) :]
-                    logger.debug((f"Faithfulness: output {i} after removing the "
+                    logger.debug((f"Faithfulness: output #{i} after removing the "
                                   f"final answer: {output}"))
                     score = sum(
                         0 if "yes" in answer else 1
@@ -247,7 +247,7 @@ class Faithfulness(MetricWithLLM):
                     )
 
                 # Log the score to be appended to scores list
-                logger.debug((f"Faithfulness: score to be appended for statement{i}:"
+                logger.debug((f"Faithfulness: score to be appended for statement #{i}:"
                               f" {1 - score}"))
 
                 scores.append(1 - score)

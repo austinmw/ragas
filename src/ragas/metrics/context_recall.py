@@ -149,7 +149,7 @@ class ContextRecall(MetricWithLLM):
 
             # Log all responses
             for n, response in enumerate(responses):
-                logger.debug(f"ContextRecall: response {n}:\n{response[0]}")
+                logger.debug(f"ContextRecall: response #{n}:\n{response[0]}")
 
             scores = []
             for response in responses:
@@ -158,7 +158,7 @@ class ContextRecall(MetricWithLLM):
 
                 # Log all sentences
                 for n, sentence in enumerate(sentences):
-                    logger.debug(f"ContextRecall: sentence {n}:\n{sentence}")
+                    logger.debug(f"ContextRecall: sentence #{n}:\n{sentence}")
 
                 denominator = len(sentences)
                 numerator = sum(

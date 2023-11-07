@@ -125,7 +125,7 @@ class AspectCritique(MetricWithLLM):
             for n, (question, context, answer) in enumerate(zip(questions, contexts, answers)):
                 human_prompt = self.prompt_format(question, answer, context)
                 # Log the human prompts
-                logger.debug((f"AspectCritique: human_prompt.content {n}:\n"
+                logger.debug((f"AspectCritique: human_prompt.content #{n}:\n"
                               f"{human_prompt.content}"))
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
@@ -144,16 +144,16 @@ class AspectCritique(MetricWithLLM):
             answer_dict = {"yes": 1, "no": 0}
             for n, response in enumerate(responses):
                 # Log the response
-                logger.debug(f"AspectCritique: response {n}:\n{response}")
+                logger.debug(f"AspectCritique: response #{n}:\n{response}")
                 response = [(text, text.split("\n\n")[-1]) for text in response]
-                logger.debug(f"AspectCritique: parsed response tuples {n}:\n{response}")
+                logger.debug(f"AspectCritique: parsed response tuples #{n}:\n{response}")
                 if self.strictness > 1:
                     score = Counter(
                         [answer_dict.get(item[-1], 0) for item in response]
                     ).most_common(1)[0][0]
                 else:
                     score = answer_dict.get(response[0][-1].lower())
-                logger.debug(f"AspectCritique: score {n}:\n{score}")
+                logger.debug(f"AspectCritique: score #{n}:\n{score}")
                 scores.append(score)
 
         return scores

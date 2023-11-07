@@ -111,7 +111,7 @@ class AnswerRelevancy(MetricWithLLM):
             for n, ans in enumerate(answers):
                 human_prompt = QUESTION_GEN.format(answer=ans)
                 # Log the human prompts
-                logger.debug((f"AnswerRelevancy: human_prompt.content {n}:\n"
+                logger.debug((f"AnswerRelevancy: human_prompt.content #{n}:\n"
                               f"{human_prompt.content}"))
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
@@ -124,12 +124,12 @@ class AnswerRelevancy(MetricWithLLM):
             #print(f"results[0]:\n{results[0]}")
             scores = []
             for n, (question, gen_questions) in enumerate(zip(questions, results)):
-                logger.debug(f"AnswerRelevancy: question {n}:\n{question}")
-                logger.debug(f"AnswerRelevancy: gen_questions {n}:\n{gen_questions}")
+                logger.debug(f"AnswerRelevancy: question #{n}:\n{question}")
+                logger.debug(f"AnswerRelevancy: gen_questions #{n}:\n{gen_questions}")
                 cosine_sim = self.calculate_similarity(question, gen_questions)
-                logger.debug(f"AnswerRelevancy: cosine_sim {n}:\n{cosine_sim}")
+                logger.debug(f"AnswerRelevancy: cosine_sim #{n}:\n{cosine_sim}")
                 cosine_sim_mean = cosine_sim.mean()
-                logger.debug((f"AnswerRelevancy: cosine_sim_mean {n}:\n"
+                logger.debug((f"AnswerRelevancy: cosine_sim_mean #{n}:\n"
                               f"{cosine_sim_mean}"))
                 scores.append(cosine_sim_mean)
 

@@ -248,7 +248,7 @@ class ContextPrecision(MetricWithLLM):
 
                 # Log the human prompts
                 for n, human_prompt in enumerate(human_prompts):
-                    logger.debug((f"ContextPrecision: human_prompt.content {n}:\n"
+                    logger.debug((f"ContextPrecision: human_prompt.content #{n}:\n"
                                   f"{human_prompt.messages[0].content}"))
 
                 prompts.extend(human_prompts)
@@ -271,12 +271,12 @@ class ContextPrecision(MetricWithLLM):
 
             for n, response in enumerate(grouped_responses):
                 # Log the model responses
-                logger.debug(f"ContextPrecision: response {n}:\n{response}")
+                logger.debug(f"ContextPrecision: response #{n}:\n{response}")
                 #response = [int("yes" in resp) for resp in response]
                 response = [int(any("yes" == word.lower() for word in resp)) \
                             for resp in response]
                 # Log boolean responses
-                logger.debug(f"ContextPrecision: response {n} matches:\n{response}")
+                logger.debug(f"ContextPrecision: response #{n} matches:\n{response}")
                 denominator = sum(response) + 1e-10
                 numerator = sum(
                     [
