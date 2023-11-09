@@ -76,7 +76,13 @@ class RagasEvaluatorChain(Chain, RunEvaluator):
             },
             callbacks=callbacks,
         )
-        return {f"{self.metric.name}_score": score}
+        output = {f"{self.metric.name}_score": score}
+
+        if hasattr(self.metric, "latest_logs"):
+            latest_logs = self.metric.latest_logs
+            output["latest_logs"] = latest_logs
+
+        return output
 
     def _validate(
         self,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 import logging
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from datasets import Dataset
 from langchain.callbacks.manager import CallbackManager, trace_as_chain_group
@@ -116,6 +116,8 @@ class ContextRecall(MetricWithLLM):
     evaluation_mode: EvaluationMode = EvaluationMode.gc
     batch_size: int = 15
 
+    latest_logs: dict = field(default_factory=dict)
+
     def _score_batch(
         self: t.Self,
         dataset: Dataset,
@@ -125,6 +127,16 @@ class ContextRecall(MetricWithLLM):
         verdict_token = "[Attributed]"
         prompts = []
         ground_truths, contexts = dataset["ground_truths"], dataset["contexts"]
+
+        self.latest_logs = {
+            'question': dataset['question'],
+            'contexts': contexts,
+            'ground_truths': ground_truths,
+            'prompts': [],
+            'responses': [],
+            'sentences': [],
+            'score_components': [],
+        }
 
         with trace_as_chain_group(
             callback_group_name, callback_manager=callbacks
@@ -137,6 +149,7 @@ class ContextRecall(MetricWithLLM):
                 logger.debug((f"ContextRecall: human_prompt.content #{n}:\n"
                               f"{human_prompt.content}")
                 )
+                self.latest_logs['prompts'].append(human_prompt.content)
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             responses: list[list[str]] = []
@@ -150,11 +163,13 @@ class ContextRecall(MetricWithLLM):
             # Log all responses
             for n, response in enumerate(responses):
                 logger.debug(f"ContextRecall: response #{n}:\n{response[0]}")
+                self.latest_logs['responses'].append(response[0])
 
             scores = []
             for response in responses:
                 sentences = response[0].split("\n")
                 sentences = [s for s in sentences if s.strip()]
+                self.latest_logs['sentences'].append(sentences)
 
                 # Log all sentences
                 for n, sentence in enumerate(sentences):
@@ -168,9 +183,15 @@ class ContextRecall(MetricWithLLM):
                 # Log denominator, numerator and score
                 logger.debug((f"ContextRecall: denominator: {denominator}, "
                               f"numerator: {numerator}, score: {score}"))
+                score_components = {
+                    'numerator': numerator,
+                    'denominator': denominator,
+                    'score': score
+                }
+                self.latest_logs['score_components'].append(score_components)
                 scores.append(score)
 
+        # Log details
+        self.logs.append(self.latest_logs)
+
         return scores
-
-
-#context_recall = ContextRecall()
