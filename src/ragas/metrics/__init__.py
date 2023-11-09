@@ -31,6 +31,7 @@ __all__ = [
     "ContextRelevancy",
     #"context_relevancy",
     "ContextPrecision",
+    "ContextOutsideInPrecision"
     #"context_precision",
     "AspectCritique",
     "ContextRecall",
