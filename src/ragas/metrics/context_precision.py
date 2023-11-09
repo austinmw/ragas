@@ -23,11 +23,20 @@ handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s")
 logger.addHandler(handler)
 
 CONTEXT_RELEVANCE = HumanMessagePromptTemplate.from_template(
-    """\
-Please extract relevant sentences from the provided context that is absolutely required answer the following question. If no relevant sentences are found, or if you believe the question cannot be answered from the given context, return the phrase "Insufficient Information".  While extracting candidate sentences you're not allowed to make any changes to sentences from given context.
+    """</instructions>
+Please extract relevant sentences from the provided context that are absolutely required answer the following question.
+If no relevant sentences are found, or if you believe the question cannot be answered from the given context, return the phrase "Insufficient Information".
+While extracting candidate sentences you're not allowed to make any changes to sentences from given context.
+Write each sentence line-by-line, without using double newline characters</instructions>
 
-question:{question}
-context:\n{context}
+<question>
+{question}
+</question>
+
+<context>
+{context}
+</context>
+
 candidate sentences:\n"""  # noqa: E501
 )
 
@@ -293,5 +302,79 @@ class ContextPrecision(MetricWithLLM):
         return scores
 
 
-#context_precision = ContextPrecision()
-#context_relevancy = ContextRelevancy()
+@dataclass
+class ContextOutsideInPrecision(MetricWithLLM):
+    """
+    ContextOutsideInPrecision is a metric that evaluates the relevance of items
+    by ranking them in an alternating outside-in manner starting from the last: 
+    N, 1, N-1, 2, N-2, 3, etc., where N is the total number of items.
+
+    Relevant for the following:
+    https://python.langchain.com/docs/modules/data_connection/document_transformers/post_retrieval/long_context_reorder
+
+    Attributes
+    ----------
+    name : str
+        Name of the metric.
+    batch_size : int
+        Batch size for openai completion.
+    """
+
+    name: str = "outside_in_precision"
+    evaluation_mode: EvaluationMode = EvaluationMode.qc
+    batch_size: int = 15
+
+    def _score_batch(
+        self,
+        dataset: Dataset,
+        callbacks: CallbackManager = None,
+        callback_group_name: str = "batch",
+    ) -> list:
+        prompts = []
+        questions, contexts = dataset["question"], dataset["contexts"]
+        with trace_as_chain_group(
+            callback_group_name, callback_manager=callbacks
+        ) as batch_group:
+            for qstn, ctx in zip(questions, contexts):
+                human_prompts = [
+                    ChatPromptTemplate.from_messages(
+                        [CONTEXT_PRECISION.format(question=qstn, context=c)]
+                    )
+                    for c in ctx
+                ]
+                prompts.extend(human_prompts)
+
+            responses: list[list[str]] = []
+            results = self.llm.generate(
+                prompts,
+                n=1,
+                callbacks=batch_group,
+            )
+            responses = [[i.text.strip() for i in r] for r in results.generations]
+            context_lens = [len(ctx) for ctx in contexts]
+            context_lens.insert(0, 0)
+            context_lens = np.cumsum(context_lens)
+            grouped_responses = [
+                responses[start:end]
+                for start, end in zip(context_lens[:-1], context_lens[1:])
+            ]
+            scores = []
+
+            for response_group in grouped_responses:
+                response_bools = [int('yes' == resp.lower()) for resp in response_group]
+                # Create an outside-in order starting from the last
+                outside_in_responses = []
+                for i in range((len(response_bools) + 1) // 2):
+                    if i != len(response_bools) - i - 1:  # Avoid double counting the middle item
+                        outside_in_responses.append(response_bools[-i - 1])  # Backward
+                    outside_in_responses.append(response_bools[i])  # Forward
+
+                numerator = sum(
+                    (sum(outside_in_responses[:i + 1]) / (i + 1)) * outside_in_responses[i]
+                    for i in range(len(outside_in_responses))
+                )
+                denominator = sum(response_bools) + 1e-10  # Avoid division by zero
+                score = numerator / denominator if denominator else 0
+                scores.append(score)
+
+        return scores
