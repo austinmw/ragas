@@ -4,6 +4,7 @@ from ragas.metrics.answer_similarity import AnswerSimilarity #, answer_similarit
 from ragas.metrics.context_precision import (
     ContextPrecision,
     ContextRelevancy,
+    ContextOutsideInPrecision,
     #context_precision,
     #context_relevancy,
 )
