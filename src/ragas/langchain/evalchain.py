@@ -79,8 +79,7 @@ class RagasEvaluatorChain(Chain, RunEvaluator):
         output = {f"{self.metric.name}_score": score}
 
         if hasattr(self.metric, "latest_logs"):
-            latest_logs = self.metric.latest_logs
-            output["latest_logs"] = latest_logs
+            output["latest_logs"] = self.metric.latest_logs
 
         return output
 

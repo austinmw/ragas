@@ -12,29 +12,11 @@ from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
 
 logger = logging.getLogger("Evaluation-Tab")
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
 logger.addHandler(handler)
 
-# CONTEXT_RECALL_RA = HumanMessagePromptTemplate.from_template(
-#     """
-# Given a context, and an answer, analyze each sentence in the answer and classify if the sentence can be attributed to the given context or not.
-# Think in steps and reason before coming to conclusion. 
-
-# context: Albert Einstein (14 March 1879 – 18 April 1955) was a German-born theoretical physicist,widely held to be one of the greatest and most influential scientists of all time. Best known for developing the theory of relativity, he also made important contributions to quantum mechanics, and was thus a central figure in the revolutionary reshaping of the scientific understanding of nature that modern physics accomplished in the first decades of the twentieth century. His mass–energy equivalence formula E = mc2, which arises from relativity theory, has been called "the world's most famous equation". He received the 1921 Nobel Prize in Physics "for his services to theoretical physics, and especially for his discovery of the law of the photoelectric effect", a pivotal step in the development of quantum theory. His work is also known for its influence on the philosophy of science. In a 1999 poll of 130 leading physicists worldwide by the British journal Physics World, Einstein was ranked the greatest physicist of all time. His intellectual achievements and originality have made Einstein synonymous with genius.
-# answer: Albert Einstein born in 14 March 1879 was  German-born theoretical physicist, widely held to be one of the greatest and most influential scientists of all time. He received the 1921 Nobel Prize in Physics "for his services to theoretical physics. He published 4 papers in 1905.  Einstein moved to Switzerland in 1895 
-# classification
-# 1. Albert Einstein born in 14 March 1879 was  German-born theoretical physicist, widely held to be one of the greatest and most influential scientists of all time. The date of birth of Einstein is mentioned clearly in the context. So [Attributed]
-# 2. He received the 1921 Nobel Prize in Physics "for his services to theoretical physics. The exact sentence is present in the given context. So [Attributed]
-# 3. He published 4 papers in 1905. There is no mention about papers he wrote in given the context. So [Not Attributed]
-# 4. Einstein moved to Switzerland in 1895. There is not supporting evidence for this in the given the context. So [Not Attributed]
-
-# context:{context}
-# answer:{ground_truth}
-# classification:
-# """  # noqa: E501
-# )
 
 CONTEXT_RECALL_RA = HumanMessagePromptTemplate.from_template(
     """<instructions>
@@ -100,7 +82,6 @@ Assistant: Line by line sentence classifications for the given answer:
 
 @dataclass
 class ContextRecall(MetricWithLLM):
-
     """
     Estimates context recall by estimating TP and FN using annotated answer and
     retrieved context.
@@ -126,30 +107,28 @@ class ContextRecall(MetricWithLLM):
     ) -> list:
         verdict_token = "[Attributed]"
         prompts = []
-        ground_truths, contexts = dataset["ground_truths"], dataset["contexts"]
 
-        self.latest_logs = {
-            'question': dataset['question'],
-            'contexts': contexts,
-            'ground_truths': ground_truths,
-            'prompts': [],
-            'responses': [],
-            'sentences': [],
-            'score_components': [],
-        }
+        questions = dataset["question"]
+        ground_truths = dataset["ground_truths"]
+        contexts = dataset["contexts"]
+        answer = dataset["answer"]
+
+        # Log each item added to latest_logs
+        self._log_and_update('question', questions[0])
+        self._log_and_update('ground_truth_answer', ground_truths[0])
+        self._log_and_update('retrieved_documents', contexts[0])
+        self._log_and_update('generated_answer', answer[0])
+        self._log_and_update('model_kwargs', self.llm.llm.model_kwargs)
 
         with trace_as_chain_group(
             callback_group_name, callback_manager=callbacks
         ) as batch_group:
             for n, (gt, ctx) in enumerate(zip(ground_truths, contexts)):
+
                 gt = "\n".join(gt) if isinstance(gt, list) else gt
                 ctx = "\n".join(ctx) if isinstance(ctx, list) else ctx
                 human_prompt = CONTEXT_RECALL_RA.format(context=ctx, ground_truth=gt)
-                # Log human prompt
-                logger.debug((f"ContextRecall: human_prompt.content #{n}:\n"
-                              f"{human_prompt.content}")
-                )
-                self.latest_logs['prompts'].append(human_prompt.content)
+                self._log_and_update('prompt', human_prompt.content)
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
 
             responses: list[list[str]] = []
@@ -162,36 +141,29 @@ class ContextRecall(MetricWithLLM):
 
             # Log all responses
             for n, response in enumerate(responses):
-                logger.debug(f"ContextRecall: response #{n}:\n{response[0]}")
-                self.latest_logs['responses'].append(response[0])
+                self._log_and_update('response', response[0])
 
             scores = []
             for response in responses:
                 sentences = response[0].split("\n")
                 sentences = [s for s in sentences if s.strip()]
-                self.latest_logs['sentences'].append(sentences)
-
-                # Log all sentences
-                for n, sentence in enumerate(sentences):
-                    logger.debug(f"ContextRecall: sentence #{n}:\n{sentence}")
-
+                self._log_and_update('sentences', sentences)  # Since only one response
                 denominator = len(sentences)
                 numerator = sum(
                     bool(sentence.find(verdict_token) != -1) for sentence in sentences
                 )
-                score = numerator / denominator if denominator else 0.0
-                # Log denominator, numerator and score
-                logger.debug((f"ContextRecall: denominator: {denominator}, "
-                              f"numerator: {numerator}, score: {score}"))
-                score_components = {
-                    'numerator': numerator,
-                    'denominator': denominator,
-                    'score': score
-                }
-                self.latest_logs['score_components'].append(score_components)
+                score = numerator / denominator if denominator else 1e-6
+                self._log_and_update('numerator', numerator)
+                self._log_and_update('denominator', denominator)
+                self._log_and_update('context_recall', score)
+
                 scores.append(score)
 
-        # Log details
-        self.logs.append(self.latest_logs)
-
         return scores
+
+    def _log_and_update(self, key, value):
+        """
+        Helper method to log the addition of a new item to latest_logs.
+        """
+        self.latest_logs[key] = value
+        #logger.debug(f"ContextRecall - {key}: {value}")

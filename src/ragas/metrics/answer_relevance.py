@@ -4,7 +4,7 @@ import sys
 import logging
 import os
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from datasets import Dataset
@@ -25,21 +25,11 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
 logger.addHandler(handler)
 
-# QUESTION_GEN = HumanMessagePromptTemplate.from_template(
-#     """
-# Generate question for the given answer.
-# Answer:\nThe PSLV-C56 mission is scheduled to be launched on Sunday, 30 July 2023 at 06:30 IST / 01:00 UTC. It will be launched from the Satish Dhawan Space Centre, Sriharikota, Andhra Pradesh, India 
-# Question: When is the scheduled launch date and time for the PSLV-C56 mission, and where will it be launched from?
-
-# Answer:{answer}
-# Question:
-# """  # noqa: E501
-# )
 
 QUESTION_GEN = HumanMessagePromptTemplate.from_template(
     """
 <instructions>
-Generate question for the given answer. Follow the exact output format as shown in the example response. Do not add anything extra in the response!
+Generate a question for the given answer. Follow the exact output format as shown in the example response. Do not add anything extra in the response!
 </instructions>
 
 <example_input>
@@ -85,6 +75,8 @@ class AnswerRelevancy(MetricWithLLM):
     strictness: int = 3
     embeddings: Embeddings | None = None
 
+    latest_logs: dict = field(default_factory=dict)
+
     def __post_init__(self: t.Self):
         if self.embeddings is None:
             oai_key = os.getenv("OPENAI_API_KEY", "no-key")
@@ -103,17 +95,31 @@ class AnswerRelevancy(MetricWithLLM):
         callbacks: t.Optional[CallbackManager] = None,
         callback_group_name: str = "batch",
     ) -> list[float]:
-        questions, answers = dataset["question"], dataset["answer"]
+
+        questions = dataset["question"]
+        ground_truths = dataset["ground_truths"]
+        contexts = dataset["contexts"]
+        answers = dataset["answer"]
+        assert len(answers)  == 1, "Only one answer is allowed per question"
+
+        # Log each item added to latest_logs
+        self._log_and_update('question', questions[0])
+        self._log_and_update('ground_truth_answer', ground_truths[0])
+        self._log_and_update('retrieved_documents', contexts[0])
+        self._log_and_update('generated_answer', answers[0])
+        self._log_and_update('model_kwargs', self.llm.llm.model_kwargs)
+
         with trace_as_chain_group(
             callback_group_name, callback_manager=callbacks
         ) as batch_group:
             prompts = []
+            human_prompt_contents = []
             for n, ans in enumerate(answers):
                 human_prompt = QUESTION_GEN.format(answer=ans)
-                # Log the human prompts
-                logger.debug((f"AnswerRelevancy: human_prompt.content #{n}:\n"
-                              f"{human_prompt.content}"))
+                human_prompt_contents.append(human_prompt.content)
                 prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
+
+            self._log_and_update('prompts', human_prompt_contents)
 
             results = self.llm.generate(
                 prompts,
@@ -121,16 +127,13 @@ class AnswerRelevancy(MetricWithLLM):
                 callbacks=batch_group,
             )
             results = [[i.text for i in r] for r in results.generations]
-            #print(f"results[0]:\n{results[0]}")
+
             scores = []
             for n, (question, gen_questions) in enumerate(zip(questions, results)):
-                logger.debug(f"AnswerRelevancy: question #{n}:\n{question}")
-                logger.debug(f"AnswerRelevancy: gen_questions #{n}:\n{gen_questions}")
-                cosine_sim = self.calculate_similarity(question, gen_questions)
-                logger.debug(f"AnswerRelevancy: cosine_sim #{n}:\n{cosine_sim}")
-                cosine_sim_mean = cosine_sim.mean()
-                logger.debug((f"AnswerRelevancy: cosine_sim_mean #{n}:\n"
-                              f"{cosine_sim_mean}"))
+                cosine_similary_list = self.calculate_similarity(question, gen_questions)
+                self._log_and_update('cosine_similary_list', cosine_similary_list.tolist())
+                cosine_sim_mean = cosine_similary_list.mean()
+                self._log_and_update('cosine_similarity', cosine_sim_mean)
                 scores.append(cosine_sim_mean)
 
         return scores
@@ -140,6 +143,9 @@ class AnswerRelevancy(MetricWithLLM):
     ):
         assert self.embeddings is not None
         question_vec = np.asarray(self.embeddings.embed_query(question)).reshape(1, -1)
+
+        self._log_and_update('generated_questions', generated_questions)
+
         gen_question_vec = np.asarray(
             self.embeddings.embed_documents(generated_questions)
         )
@@ -153,5 +159,9 @@ class AnswerRelevancy(MetricWithLLM):
             / norm
         )
 
-
-#answer_relevancy = AnswerRelevancy()
+    def _log_and_update(self, key, value):
+        """
+        Helper method to log the addition of a new item to latest_logs.
+        """
+        self.latest_logs[key] = value
+        #logger.debug(f"AnswerRelevancy - {key}: {value}")

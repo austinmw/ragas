@@ -3,16 +3,13 @@ from __future__ import annotations
 import sys
 import logging
 import typing as t
-from dataclasses import dataclass
-from itertools import combinations, product
+from dataclasses import dataclass, field
 from typing import List
 
 import numpy as np
-import pysbd
 from datasets import Dataset
 from langchain.callbacks.manager import CallbackManager, trace_as_chain_group
 from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
-from sentence_transformers import CrossEncoder
 
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
 
@@ -22,13 +19,26 @@ handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(logging.Formatter("%(levelname)s | %(name)s | %(message)s"))
 logger.addHandler(handler)
 
-CONTEXT_RELEVANCE = HumanMessagePromptTemplate.from_template(
-    """</instructions>
-Please extract relevant sentences from the provided context that are absolutely required answer the following question.
-If no relevant sentences are found, or if you believe the question cannot be answered from the given context, return the phrase "Insufficient Information".
-While extracting candidate sentences you're not allowed to make any changes to sentences from given context.
-Write each sentence line-by-line, without using double newline characters</instructions>
 
+CONTEXT_PRECISION = HumanMessagePromptTemplate.from_template(
+    """<instructions>
+Given a question and a context, verify if the information in the given context is useful in answering the question. 
+Answer only with a single word of either "Yes" or "No" and nothing else.
+</instructions>
+
+<example_input>
+<question>
+What is the significance of the Statue of Liberty in New York City?
+</question>
+
+<context>
+The Statue of Liberty National Monument and Ellis Island Immigration Museum are managed by the National Park Service and are in both New York and New Jersey. They are joined in the harbor by Governors Island National Monument. Historic sites under federal management on Manhattan Island include Stonewall National Monument; Castle Clinton National Monument; Federal Hall National Memorial; Theodore Roosevelt Birthplace National Historic Site; General Grant National Memorial (Grant's Tomb); African Burial Ground National Monument; and Hamilton Grange National Memorial. Hundreds of properties are listed on the National Register of Historic Places or as a National Historic Landmark.
+</context>
+</example_input>
+
+<example_response>Yes</example_response>
+
+Here is the question and context for you to analyze:
 <question>
 {question}
 </question>
@@ -37,187 +47,8 @@ Write each sentence line-by-line, without using double newline characters</instr
 {context}
 </context>
 
-candidate sentences:\n"""  # noqa: E501
-)
-
-# CONTEXT_PRECISION = HumanMessagePromptTemplate.from_template(
-#     """\
-# Given a question and a context, verify if the information in the given context is useful in answering the question. Return a Yes/No answer.
-# question:{question}
-# context:\n{context}
-# answer:
-# """  # noqa: E501
-# )
-
-CONTEXT_PRECISION = HumanMessagePromptTemplate.from_template(
-    """<instructions>Given a question and a context, verify if the information in the given context is useful in answering the question. 
-Answer only with a single word of either "Yes" or "No" and nothing else.</instructions>
-
-<example_input>
-<question>What is the significance of the Statue of Liberty in New York City?</question>
-<context>The Statue of Liberty National Monument and Ellis Island Immigration Museum are managed by the National Park Service and are in both New York and New Jersey. They are joined in the harbor by Governors Island National Monument. Historic sites under federal management on Manhattan Island include Stonewall National Monument; Castle Clinton National Monument; Federal Hall National Memorial; Theodore Roosevelt Birthplace National Historic Site; General Grant National Memorial (Grant's Tomb); African Burial Ground National Monument; and Hamilton Grange National Memorial. Hundreds of properties are listed on the National Register of Historic Places or as a National Historic Landmark.</context>
-</example_input>
-
-<example_response>Yes</example_response>
-
-Here is the question and context for you to analyze:
-<question>{question}</question>
-<context>{context}</context>
-
 Assistant: The single word answer is: """  # noqa: E501
 )
-
-seg = pysbd.Segmenter(language="en", clean=False)
-
-
-def sent_tokenize(text: str) -> List[str]:
-    """
-    tokenizer text into sentences
-    """
-    sentences = seg.segment(text)
-    assert isinstance(sentences, list)
-    return sentences
-
-
-class SentenceAgreement:
-    def __init__(
-        self: t.Self,
-        model_name: str = "cross-encoder/stsb-TinyBERT-L-4",
-        metric: str = "bert_score",
-    ):
-        self.metric = metric
-        self.cross_encoder = CrossEncoder(model_name)
-
-    def bert_score(self, para1: str, para2: str) -> float:
-        sentences1, sentences2 = sent_tokenize(para1), sent_tokenize(para2)
-        scores = self.cross_encoder.predict(
-            list(product(sentences1, sentences2)), convert_to_numpy=True  # type: ignore
-        )
-        assert isinstance(scores, np.ndarray), "Expects ndarray"
-        scores = scores.reshape(len(sentences1), len(sentences2))
-        return scores.max(axis=1).mean()
-
-    @staticmethod
-    def jaccard_score(para1: str, para2: str) -> float:
-        sentences1, sentences2 = sent_tokenize(para1), sent_tokenize(para2)
-        intersect = len(np.intersect1d(sentences1, sentences2))
-        union = len(np.union1d(sentences1, sentences2))
-        return intersect / union
-
-    def evaluate(self, answers: List[str]) -> np.float_:
-        """
-        eval nC2 combinations
-        """
-        scores = []
-        groups = combinations(answers, 2)
-        for group in groups:
-            if self.metric == "jaccard":
-                score = self.jaccard_score(*group)  # type: ignore
-            elif self.metric == "bert_score":
-                score = self.bert_score(*group)  # type: ignore
-            else:
-                score = 0
-                raise ValueError(f"Metric {self.metric} unavailable")
-            scores.append(score)
-        score = np.mean(scores)
-        return score
-
-
-@dataclass
-class ContextRelevancy(MetricWithLLM):
-    """
-    Extracts sentences from the context that are relevant to the question with
-    self-consistancy checks. The number of relevant sentences and is used as the score.
-
-    Attributes
-    ----------
-    name : str
-    batch_size : int
-        Batch size for openai completion.
-    strictness : int
-        Controls the number of times sentence extraction is performed to quantify
-        uncertainty from the LLM. Defaults to 1.
-    agreement_metric : str
-        "bert_score" or "jaccard_score", used to measure agreement between multiple
-        samples.
-    model_name : str
-        any encoder model. Used for calculating bert_score.
-    """
-
-    name: str = "context_relevancy"
-    evaluation_mode: EvaluationMode = EvaluationMode.qc
-    batch_size: int = 15
-    strictness: int = 1
-    agreement_metric: str = "bert_score"
-    model_name: str = "cross-encoder/stsb-TinyBERT-L-4"
-    show_deprecation_warning: bool = False
-
-    def __post_init__(self: t.Self):
-        if self.agreement_metric == "bert_score" and self.model_name is None:
-            raise ValueError(
-                "model_name must be provided when agreement_metric is bert_score"
-            )
-
-    def init_model(self: t.Self):
-        super().init_model()
-        self.sent_agreement = SentenceAgreement(
-            model_name=self.model_name, metric=self.agreement_metric
-        )
-
-    def _score_batch(
-        self: t.Self,
-        dataset: Dataset,
-        callbacks: t.Optional[CallbackManager] = None,
-        callback_group_name: str = "batch",
-    ) -> list[float]:
-        if self.show_deprecation_warning:
-            logging.warning(
-                "The 'context_relevancy' metric is going to be deprecated soon! Please use the 'context_precision' metric instead. It is a drop-in replacement just a simple search and replace should work."  # noqa
-            )
-        prompts = []
-        questions, contexts = dataset["question"], dataset["contexts"]
-        with trace_as_chain_group(
-            callback_group_name, callback_manager=callbacks
-        ) as batch_group:
-            for q, c in zip(questions, contexts):
-                human_prompt = CONTEXT_RELEVANCE.format(
-                    question=q, context="\n".join(c)
-                )
-                prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
-
-            responses: list[list[str]] = []
-            results = self.llm.generate(
-                prompts,
-                n=self.strictness,
-                callbacks=batch_group,
-            )
-            #print(results)
-            responses = [[i.text for i in r] for r in results.generations]
-
-            scores = []
-            for context, n_response in zip(contexts, responses):
-                context = "\n".join(context)
-                overlap_scores = []
-                context_sents = sent_tokenize(context)
-                for output in n_response:
-                    indices = (
-                        sent_tokenize(output.strip())
-                        if output.lower() != "insufficient information."
-                        else []
-                    )
-                    if len(context_sents) == 0:
-                        score = 0
-                    else:
-                        score = min(len(indices) / len(context_sents), 1)
-                    overlap_scores.append(score)
-                if self.strictness > 1:
-                    agr_score = self.sent_agreement.evaluate(n_response)
-                else:
-                    agr_score = 1
-                scores.append(agr_score * np.mean(overlap_scores))
-
-        return scores
-
 
 @dataclass
 class ContextPrecision(MetricWithLLM):
@@ -236,6 +67,8 @@ class ContextPrecision(MetricWithLLM):
     evaluation_mode: EvaluationMode = EvaluationMode.qc
     batch_size: int = 15
 
+    latest_logs: dict = field(default_factory=dict)
+
     def _score_batch(
         self: t.Self,
         dataset: Dataset,
@@ -243,63 +76,77 @@ class ContextPrecision(MetricWithLLM):
         callback_group_name: str = "batch",
     ) -> list:
         prompts = []
-        questions, contexts = dataset["question"], dataset["contexts"]
+
+        questions = dataset["question"]
+        ground_truths = dataset["ground_truths"]
+        contexts = dataset["contexts"]
+        answer = dataset["answer"]
+
+        contexts = contexts[0]
+        questions *= len(contexts)
+
+        # Log each item added to latest_logs
+        self._log_and_update('question', questions[0])
+        self._log_and_update('ground_truth_answer', ground_truths[0])
+        self._log_and_update('retrieved_documents', contexts)
+        self._log_and_update('generated_answer', answer[0])
+        self._log_and_update("num_contexts", len(contexts))
+
         with trace_as_chain_group(
             callback_group_name, callback_manager=callbacks
         ) as batch_group:
+
+            prompt_contexts = []
             for qstn, ctx in zip(questions, contexts):
-                human_prompts = [
-                    ChatPromptTemplate.from_messages(
-                        [CONTEXT_PRECISION.format(question=qstn, context=c)]
-                    )
-                    for c in ctx
-                ]
+                human_prompt = CONTEXT_PRECISION.format(question=qstn, context=ctx)
+                prompt_contexts.append(human_prompt.content)
+                prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
+            self._log_and_update('prompts', prompt_contexts)
 
-                # Log the human prompts
-                for n, human_prompt in enumerate(human_prompts):
-                    logger.debug((f"ContextPrecision: human_prompt.content #{n}:\n"
-                                  f"{human_prompt.messages[0].content}"))
-
-                prompts.extend(human_prompts)
-
-            responses: list[list[str]] = []
             results = self.llm.generate(
                 prompts,
                 n=1,
                 callbacks=batch_group,
             )
-            responses = [[i.text.strip() for i in r] for r in results.generations]
-            context_lens = [len(ctx) for ctx in contexts]
-            context_lens.insert(0, 0)
-            context_lens = np.cumsum(context_lens)
-            grouped_responses = [
-                responses[start:end]
-                for start, end in zip(context_lens[:-1], context_lens[1:])
-            ]
-            scores = []
 
-            for n, response in enumerate(grouped_responses):
-                # Log the model responses
-                logger.debug(f"ContextPrecision: response #{n}:\n{response}")
-                #response = [int("yes" in resp) for resp in response]
-                response = [int(any("yes" == word.lower() for word in resp)) \
-                            for resp in response]
-                # Log boolean responses
-                logger.debug(f"ContextPrecision: response #{n} matches:\n{response}")
-                denominator = sum(response) + 1e-10
-                numerator = sum(
-                    [
-                        (sum(response[: i + 1]) / (i + 1)) * response[i]
-                        for i in range(len(response))
-                    ]
-                )
-                score = numerator / denominator if denominator else 0
-                # Log denominator, numerator and score
-                logger.debug((f"ContextPrecision: denominator: {denominator}, "
-                              f"numerator: {numerator}, score: {score}"))
-                scores.append(score)
+            responses = [[i.text.strip() for i in r][0] for r in results.generations]
+            self._log_and_update('responses', responses)
+
+            binary_responses = [1 if 'yes' in r.lower() else 0 for r in responses]
+            self._log_and_update('binary_responses', binary_responses)
+
+            document_lengths = [len(ctx) for ctx in contexts]
+            self._log_and_update('document_lengths', document_lengths)
+
+            weighted_precisions = []
+            num_true_positives = 0
+            total_length_positive = sum([length for r, length in zip(binary_responses, document_lengths) if r == 1])
+            self._log_and_update('total_length_positive', total_length_positive)
+
+            for i, (response, length) in enumerate(zip(binary_responses, document_lengths)):
+                if response == 1:
+                    num_true_positives += 1
+                    precision_at_i = num_true_positives / (i + 1)
+                    weighted_precisions.append(precision_at_i * length)
+                else:
+                    weighted_precisions.append(0)
+            self._log_and_update('weighted_precisions', weighted_precisions)
+
+            weighted_sum_precision = sum(weighted_precisions)
+            self._log_and_update('weighted_sum_precision', weighted_sum_precision)
+            average_precision = weighted_sum_precision / total_length_positive if total_length_positive else 1e-6
+            self._log_and_update('context_average_precision', average_precision)
+
+            scores = [average_precision]
 
         return scores
+
+    def _log_and_update(self, key, value):
+        """
+        Helper method to log the addition of a new item to latest_logs.
+        """
+        self.latest_logs[key] = value
+        #logger.debug(f"ContextPrecision - {key}: {value}")
 
 
 @dataclass
@@ -320,61 +167,105 @@ class ContextOutsideInPrecision(MetricWithLLM):
         Batch size for openai completion.
     """
 
-    name: str = "outside_in_precision"
+    name: str = "context_outsidein_precision"
     evaluation_mode: EvaluationMode = EvaluationMode.qc
     batch_size: int = 15
 
+    latest_logs: dict = field(default_factory=dict)
+
     def _score_batch(
-        self,
+        self: t.Self,
         dataset: Dataset,
-        callbacks: CallbackManager = None,
+        callbacks: t.Optional[CallbackManager] = None,
         callback_group_name: str = "batch",
     ) -> list:
         prompts = []
-        questions, contexts = dataset["question"], dataset["contexts"]
+
+        questions = dataset["question"]
+        ground_truths = dataset["ground_truths"]
+        contexts = dataset["contexts"]
+        answer = dataset["answer"]
+
+        contexts = self._reorder_contexts_outside_in(contexts[0])
+        questions *= len(contexts)
+
+        # Log each item added to latest_logs
+        self._log_and_update('question', questions[0])
+        self._log_and_update('ground_truth_answer', ground_truths[0])
+        self._log_and_update('retrieved_documents', contexts)
+        self._log_and_update('generated_answer', answer[0])
+        self._log_and_update("num_contexts", len(contexts))
+        self._log_and_update('model_kwargs', self.llm.llm.model_kwargs)
+
         with trace_as_chain_group(
             callback_group_name, callback_manager=callbacks
         ) as batch_group:
-            for qstn, ctx in zip(questions, contexts):
-                human_prompts = [
-                    ChatPromptTemplate.from_messages(
-                        [CONTEXT_PRECISION.format(question=qstn, context=c)]
-                    )
-                    for c in ctx
-                ]
-                prompts.extend(human_prompts)
 
-            responses: list[list[str]] = []
+            prompt_contexts = []
+            for qstn, ctx in zip(questions, contexts):
+                human_prompt = CONTEXT_PRECISION.format(question=qstn, context=ctx)
+                prompt_contexts.append(human_prompt.content)
+                prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
+            self._log_and_update('prompts', prompt_contexts)
+
             results = self.llm.generate(
                 prompts,
                 n=1,
                 callbacks=batch_group,
             )
-            responses = [[i.text.strip() for i in r] for r in results.generations]
-            context_lens = [len(ctx) for ctx in contexts]
-            context_lens.insert(0, 0)
-            context_lens = np.cumsum(context_lens)
-            grouped_responses = [
-                responses[start:end]
-                for start, end in zip(context_lens[:-1], context_lens[1:])
-            ]
-            scores = []
 
-            for response_group in grouped_responses:
-                response_bools = [int('yes' == resp.lower()) for resp in response_group]
-                # Create an outside-in order starting from the last
-                outside_in_responses = []
-                for i in range((len(response_bools) + 1) // 2):
-                    if i != len(response_bools) - i - 1:  # Avoid double counting the middle item
-                        outside_in_responses.append(response_bools[-i - 1])  # Backward
-                    outside_in_responses.append(response_bools[i])  # Forward
+            responses = [[i.text.strip() for i in r][0] for r in results.generations]
+            self._log_and_update('responses', responses)
 
-                numerator = sum(
-                    (sum(outside_in_responses[:i + 1]) / (i + 1)) * outside_in_responses[i]
-                    for i in range(len(outside_in_responses))
-                )
-                denominator = sum(response_bools) + 1e-10  # Avoid division by zero
-                score = numerator / denominator if denominator else 0
-                scores.append(score)
+            binary_responses = [1 if 'yes' in r.lower() else 0 for r in responses]
+            self._log_and_update('binary_responses', binary_responses)
+
+            document_lengths = [len(ctx) for ctx in contexts]
+            self._log_and_update('document_lengths', document_lengths)
+
+            weighted_precisions = []
+            num_true_positives = 0
+            total_length_positive = sum([length for r, length in zip(binary_responses, document_lengths) if r == 1])
+            self._log_and_update('total_length_positive', total_length_positive)
+
+            for i, (response, length) in enumerate(zip(binary_responses, document_lengths)):
+                if response == 1:
+                    num_true_positives += 1
+                    precision_at_i = num_true_positives / (i + 1)
+                    weighted_precisions.append(precision_at_i * length)
+                else:
+                    weighted_precisions.append(0)
+            self._log_and_update('weighted_precisions', weighted_precisions)
+
+            weighted_sum_precision = sum(weighted_precisions)
+            self._log_and_update('weighted_sum_precision', weighted_sum_precision)
+            average_precision = weighted_sum_precision / total_length_positive if total_length_positive else 1e-6
+            self._log_and_update('context_average_precision', average_precision)
+
+            scores = [average_precision]
 
         return scores
+
+    def _log_and_update(self, key, value):
+        """
+        Helper method to log the addition of a new item to latest_logs.
+        """
+        self.latest_logs[key] = value
+        #logger.debug(f"ContextOutsideInPrecision - {key}: {value}")
+
+    @staticmethod
+    def _reorder_contexts_outside_in(contexts):
+        """
+        Sorts a list based on the pattern seen in the example: [2, 4, 5, 3, 1].
+        The pattern is even indices first in ascending order followed by odd indices in descending order.
+        Another way to see it is moving outside-in, starting from the end.
+        """
+        # Separate the list into even and odd indexed elements
+        even_indices = contexts[::2]
+        odd_indices = contexts[1::2]
+        # Reverse the list with odd indices
+        odd_indices.reverse()
+        # Combine the lists
+        reordered = even_indices + odd_indices
+        reordered.reverse()
+        return reordered

@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 import logging
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from datasets import Dataset
@@ -47,6 +47,8 @@ class AnswerSimilarity(MetricWithLLM):
     embeddings: str | None = None
     threshold: float | None = 0.5
 
+    latest_logs: dict = field(default_factory=dict)
+
     def __post_init__(self: t.Self):
         if self.embeddings is None:
             self.cross_encoder = CrossEncoder("cross-encoder/stsb-TinyBERT-L-4")
@@ -57,24 +59,39 @@ class AnswerSimilarity(MetricWithLLM):
         callbacks: t.Optional[CallbackManager] = None,
         callback_group_name: str = "batch",
     ) -> list[float]:
-        ground_truths, answers = dataset["ground_truths"], dataset["answer"]
+        questions = dataset["question"]
+        ground_truths = dataset["ground_truths"]
+        contexts = dataset["contexts"]
+        answers = dataset["answer"]
+
+        # Log each item added to latest_logs
+        self._log_and_update('question', questions[0])
+        self._log_and_update('ground_truth_answer', ground_truths[0])
+        self._log_and_update('retrieved_documents', contexts[0])
+        self._log_and_update('generated_answer', answers[0])
+        self._log_and_update('model_kwargs', self.llm.llm.model_kwargs)
+
         ground_truths = [item[0] for item in ground_truths]
         inputs = [list(item) for item in list(zip(ground_truths, answers))]
         # Log threshold
-        logger.debug((f"AnswerSimilarity: threshold: {self.threshold}"))
+        self._log_and_update('threshold', self.threshold)
         scores = self.cross_encoder.predict(
             inputs, batch_size=self.batch_size, convert_to_numpy=True
         )
         # Log scores
-        logger.debug((f"AnswerSimilarity: scores: {scores}"))
+        self._log_and_update('scores', scores.tolist())
 
         assert isinstance(scores, np.ndarray), "Expects ndarray"
         if self.threshold:
             scores = scores >= self.threshold  # type: ignore
         # Log thresholded scores
-        logger.debug((f"AnswerSimilarity: thresholded scores: {scores}"))
+        self._log_and_update('thresholded_scores', scores.tolist())
 
         return scores.tolist()
 
-
-#answer_similarity = AnswerSimilarity()
+    def _log_and_update(self, key, value):
+        """
+        Helper method to log the addition of a new item to latest_logs.
+        """
+        self.latest_logs[key] = value
+        #logger.debug(f"AnswerSimilarity - {key}: {value}")

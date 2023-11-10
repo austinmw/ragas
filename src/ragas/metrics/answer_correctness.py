@@ -50,6 +50,8 @@ class AnswerCorrectness(MetricWithLLM):
     answer_similarity: AnswerSimilarity | None = None
     faithfulness: Faithfulness | None = None
 
+    latest_logs: dict = field(default_factory=dict)
+
     def __post_init__(self: t.Self):
         if self.answer_similarity is None:
             self.answer_similarity = AnswerSimilarity(
@@ -64,16 +66,25 @@ class AnswerCorrectness(MetricWithLLM):
         callbacks: t.Optional[CallbackManager] = None,
         callback_group_name: str = "batch",
     ) -> list[float]:
-        if "contexts" in dataset.column_names:
-            ds_faithfulness = dataset.remove_columns(["contexts"])
-        else:
-            ds_faithfulness = dataset
 
-        ds_faithfulness = ds_faithfulness.rename_columns({"ground_truths": "contexts"})
-        faith_scores = self.faithfulness._score_batch(ds_faithfulness)  # type: ignore
+        questions = dataset["question"]
+        ground_truths = dataset["ground_truths"]
+        contexts = dataset["contexts"]
+        answer = dataset["answer"]
+
+        # Log each item added to latest_logs
+        self._log_and_update('question', questions[0])
+        self._log_and_update('ground_truth_answer', ground_truths[0])
+        self._log_and_update('retrieved_documents', contexts[0])
+        self._log_and_update('generated_answer', answer[0])
+        self._log_and_update('faithfulness model_kwargs', self.faithfulness.llm.llm.model_kwargs)
+        self._log_and_update('similarity model_kwargs', self.answer_similarity.llm.llm.model_kwargs)
+
+        faith_scores = self.faithfulness._score_batch(dataset)  # type: ignore
         similarity_scores = self.answer_similarity._score_batch(dataset)  # type: ignore
-        logger.debug(f"AnswerCorrectness: faithfulness scores: {faith_scores}")
-        logger.debug(f"AnswerCorrectness: similarity scores: {similarity_scores}")
+
+        self._log_and_update('faithfulness_scores', faith_scores)
+        self._log_and_update('similarity_scores', similarity_scores)
 
         scores_stacked = np.vstack([faith_scores, similarity_scores])
         scores = np.average(
@@ -81,9 +92,14 @@ class AnswerCorrectness(MetricWithLLM):
             axis=0,
             weights=self.weights,
         )
-        logger.debug(f"AnswerCorrectness: weighted scores: {scores}")
+        self._log_and_update('weighted_scores', scores.tolist())
 
         return scores.tolist()
 
 
-#answer_correctness = AnswerCorrectness()
+    def _log_and_update(self, key, value):
+        """
+        Helper method to log the addition of a new item to latest_logs.
+        """
+        self.latest_logs[key] = value
+        #logger.debug(f"AnswerCorrectness - {key}: {value}")
