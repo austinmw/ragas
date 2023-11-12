@@ -37,7 +37,7 @@ class ContextMeanReciprocalRank(MetricWithLLM):
         Defaults cross-encoder/stsb-roberta-large
         Other good options https://huggingface.co/spaces/mteb/leaderboard
     threshold:
-        The threshold if given used to map output to binary
+        The threshold used to map output to binary
         Default 0.6
     """
 
