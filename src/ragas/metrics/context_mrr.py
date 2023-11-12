@@ -65,13 +65,12 @@ class ContextMeanReciprocalRank(MetricWithLLM):
         ground_truths = dataset["ground_truths"]
         contexts = dataset["contexts"]
         answers = dataset["answer"]
+        ground_truth_context = dataset["ground_truth_context"]
 
-        if "ground_truth_context" not in dataset:
+        if ground_truth_context is None:
             raise ValueError(("ContextMeanReciprocalRank error: "
-                              "source_text not found in dataset")
+                              "ground_truth_context is None")
             )
-        else:
-            ground_truth_context = dataset["ground_truth_context"]
 
         # Log each item added to latest_logs
         self._log_and_update('question', questions[0])
