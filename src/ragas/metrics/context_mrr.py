@@ -66,25 +66,25 @@ class ContextMeanReciprocalRank(MetricWithLLM):
         contexts = dataset["contexts"]
         answers = dataset["answer"]
 
-        if "source_text" not in dataset:
+        if "ground_truth_context" not in dataset:
             raise ValueError(("ContextMeanReciprocalRank error: "
                               "source_text not found in dataset")
             )
         else:
-            source_text = dataset["source_text"]
+            ground_truth_context = dataset["ground_truth_context"]
 
         # Log each item added to latest_logs
         self._log_and_update('question', questions[0])
         self._log_and_update('ground_truth_answer', ground_truths[0])
         self._log_and_update('retrieved_documents', contexts[0])
-        self._log_and_update('source_text', source_text)
+        self._log_and_update('ground_truth_context', ground_truth_context)
         self._log_and_update('threshold', self.threshold)
         self._log_and_update('generated_answer', answers[0])
         self._log_and_update('model_kwargs', self.llm.llm.model_kwargs)
 
         retrieved_contexts = contexts[0]
 
-        inputs = [list(item) for item in list(zip(source_text * \
+        inputs = [list(item) for item in list(zip(ground_truth_context * \
             len(retrieved_contexts), retrieved_contexts))]
 
         # Log threshold
