@@ -94,7 +94,7 @@ class ContextMeanReciprocalRank(MetricWithLLM):
         self._log_and_update('scores', scores.tolist())
         assert isinstance(scores, np.ndarray), "Expects ndarray"
         scores = scores >= self.threshold  # type: ignore
-        self.log_and_update('thresholded_scores', scores.tolist())
+        self._log_and_update('thresholded_scores', scores.tolist())
 
         # Calculate the mean reciprocal rank
         mean_reciprocal_rank = 0
