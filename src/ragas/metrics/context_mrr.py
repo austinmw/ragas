@@ -42,7 +42,7 @@ class ContextMeanReciprocalRank(MetricWithLLM):
     """
 
     name: str = "context_mrr"
-    evaluation_mode: EvaluationMode = EvaluationMode.ga
+    evaluation_mode: EvaluationMode = EvaluationMode.qgacs
     batch_size: int = 16
     embeddings: str | None = None
     threshold: float | None = 0.6

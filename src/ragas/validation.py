@@ -43,6 +43,7 @@ EVALMODE_TO_COLUMNS = {
     EvaluationMode.gc: ["ground_truths", "contexts"],
     EvaluationMode.ga: ["ground_truths", "answer"],
     EvaluationMode.qga: ["question", "ground_truths", "answer"],
+    EvaluationMode.qgacs: ["question", "ground_truths", "answer", "contexts", "ground_truth_context"],
 }
 
 

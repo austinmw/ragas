@@ -65,6 +65,9 @@ class RagasEvaluatorChain(Chain, RunEvaluator):
         if "ground_truths" in inputs:
             ground_truths = inputs["ground_truths"]
 
+        if "ground_truth_context" in inputs:
+            ground_truth_context = inputs["ground_truth_context"]
+
         question = inputs["query"]
         answer = inputs["result"]
         score = self.metric.score_single(
@@ -73,6 +76,7 @@ class RagasEvaluatorChain(Chain, RunEvaluator):
                 "answer": answer,
                 "contexts": contexts,
                 "ground_truths": ground_truths,
+                "ground_truth_context": ground_truth_context,
             },
             callbacks=callbacks,
         )
@@ -111,6 +115,12 @@ class RagasEvaluatorChain(Chain, RunEvaluator):
         if "ground_truths" in required_columns and "ground_truths" not in input:
             raise ValueError(
                 f'"ground_truths" is required in each prediction for the '
+                f"metric[{self.metric.name}] you have chosen."
+            )
+
+        if "ground_truth_context" in required_columns and "ground_truth_context" not in input:
+            raise ValueError(
+                f'"ground_truth_context" is required in each prediction for the '
                 f"metric[{self.metric.name}] you have chosen."
             )
 
