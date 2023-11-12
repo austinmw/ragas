@@ -41,7 +41,7 @@ class ContextMeanReciprocalRank(MetricWithLLM):
         Default 0.6
     """
 
-    name: str = "context_mrr"
+    name: str = "context_mean_reciprocal_rank"
     evaluation_mode: EvaluationMode = EvaluationMode.qgacs
     batch_size: int = 16
     embeddings: str | None = None
