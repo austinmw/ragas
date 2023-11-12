@@ -8,6 +8,7 @@ from ragas.metrics.context_precision import (
 from ragas.metrics.context_recall import ContextRecall
 from ragas.metrics.critique import AspectCritique
 from ragas.metrics.faithfulness import Faithfulness
+from ragas.metrics.context_mrr import ContextMeanReciprocalRank
 
 __all__ = [
     "Faithfulness",
@@ -18,4 +19,5 @@ __all__ = [
     "ContextOutsideInPrecision"
     "AspectCritique",
     "ContextRecall",
+    "ContextMeanReciprocalRank",
 ]
