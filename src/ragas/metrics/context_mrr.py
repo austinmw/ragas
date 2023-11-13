@@ -96,7 +96,6 @@ class ContextMeanReciprocalRank(MetricWithLLM):
         embeddings_a = self.model.encode(compare_with_instruction)
         embeddings_b = self.model.encode(retrieved_contexts_with_instruction)
         similarity_scores = cosine_similarity(embeddings_a, embeddings_b)[0]
-        similarity_scores = list
 
         # Log 
         self._log_and_update(
