@@ -96,13 +96,17 @@ class ContextMeanReciprocalRank(MetricWithLLM):
         embeddings_a = self.model.encode(compare_with_instruction)
         embeddings_b = self.model.encode(retrieved_contexts_with_instruction)
         similarity_scores = cosine_similarity(embeddings_a, embeddings_b)[0]
+        similarity_scores = list
 
-        # Log scores
-        self._log_and_update(f'{self.compare}_similarity_scores', similarity_scores)
+        # Log 
+        self._log_and_update(
+            f'{self.compare}_similarity_scores', 
+            list(similarity_scores),
+        )
         thresholded_similarity_scores = similarity_scores >= self.threshold
         self._log_and_update(
-            'thresholded_similarity_scores', 
-            thresholded_similarity_scores
+            'thresholded_similarity_scores',
+            list(thresholded_similarity_scores),
         )
 
         # Calculate the mean reciprocal rank
