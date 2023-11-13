@@ -47,7 +47,7 @@ class ContextMeanReciprocalRank(MetricWithLLM):
     evaluation_mode: EvaluationMode = EvaluationMode.qgacs
     batch_size: int = 16
     threshold: float | None = 0.9
-    instruction ="Represent the document for retrieval:"
+    instruction: str = "Represent the document for retrieval:"
     compare: str = "answer"
 
     latest_logs: dict = field(default_factory=dict)
