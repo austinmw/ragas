@@ -91,7 +91,7 @@ class ContextMeanReciprocalRank(MetricWithLLM):
             [self.instruction, context] for context in retrieved_contexts
         ]
 
-        compare_with_instruction = [[self.instruction, dataset[self.compare]]]
+        compare_with_instruction = [[self.instruction, dataset[self.compare][0]]]
 
         embeddings_a = self.model.encode(compare_with_instruction)
         embeddings_b = self.model.encode(retrieved_contexts_with_instruction)
