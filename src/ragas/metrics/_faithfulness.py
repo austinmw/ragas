@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from langchain.callbacks.manager import CallbackManager, trace_as_chain_group
-from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
+from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, AIMessagePromptTemplate
 
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
 from ragas.utils import load_as_json
@@ -123,6 +123,10 @@ class Faithfulness(MetricWithLLM):
     name: str = "faithfulness"
     evaluation_mode: EvaluationMode = EvaluationMode.qac
     batch_size: int = 15
+    statements_human_template: HumanMessagePromptTemplate = field(default_factory=lambda: LONG_FORM_ANSWER_PROMPT)
+    statements_ai_template: AIMessagePromptTemplate = None
+    verdict_human_template: HumanMessagePromptTemplate = field(default_factory=lambda: NLI_STATEMENTS_MESSAGE)
+    verdict_ai_template: AIMessagePromptTemplate = None
 
     def _score_batch(
         self: t.Self,
@@ -135,32 +139,47 @@ class Faithfulness(MetricWithLLM):
         """
 
         question, answer, contexts = ds["question"], ds["answer"], ds["contexts"]
-        prompts = []
 
         with trace_as_chain_group(
             callback_group_name, callback_manager=callbacks
         ) as batch_group:
+            prompts = []
             for q, a in zip(question, answer):
-                human_prompt = LONG_FORM_ANSWER_PROMPT.format(question=q, answer=a)
-                prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
+                human_prompt = self.statements_human_template.format(question=q, answer=a)
+                messages = [human_prompt]
+                if self.statements_ai_template is not None:
+                    ai_prompt = self.statements_ai_template.format()
+                    messages.append(ai_prompt)
+                prompts.append(ChatPromptTemplate.from_messages(messages))
+            self.logs["statement_prompts"] += prompts
 
             result = self.llm.generate(prompts, callbacks=batch_group)
+            self.logs["statement_results"] += result
 
             prompts = []
             for context, output in zip(contexts, result.generations):
                 statements = load_as_json(output[0].text).get("statements", [])
                 statements = statements if statements != [] else ["Nil"]
+                self.logs["statements"].append(statements)
                 statements_str: str = "\n".join(
                     [f"statement_{i+1}: {st}" for i, st in enumerate(statements)]
                 )
+                self.logs["statements_str"].append(statements_str)
                 contexts_str: str = "\n".join(context)
-                human_prompt = NLI_STATEMENTS_MESSAGE.format(
+                self.logs["contexts_str"].append(contexts_str)
+                human_prompt = self.verdict_human_template.format(
                     context=contexts_str, statements=statements_str
                 )
-                prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
+                messages = [human_prompt]
+                if self.verdict_ai_template is not None:
+                    ai_prompt = self.verdict_ai_template.format()
+                    messages.append(ai_prompt)
+                prompts.append(ChatPromptTemplate.from_messages(messages))
+            self.logs["verdict_prompts"] += prompts
 
             result = self.llm.generate(prompts, callbacks=batch_group)
             outputs = result.generations
+            self.logs["verdict_result"] += outputs
             verdict_score_map = {"yes": 1, "no": 0, "null": np.nan}
             scores = []
             for output in outputs:
@@ -170,13 +189,16 @@ class Faithfulness(MetricWithLLM):
                     verdict_score_map.get(dict.get("verdict", "").lower(), np.nan)
                     for dict in output
                 )
+                self.logs["faithful_statements"].append(faithful_statements)
                 num_statements = len(output)
+                self.logs["num_statements"].append(num_statements)
                 if num_statements:
                     score = faithful_statements / num_statements
                 else:
                     score = np.nan
                 scores.append(score)
 
+        self.logs["scores"] += scores
         return scores
 
 

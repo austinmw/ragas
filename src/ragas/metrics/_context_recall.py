@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import typing as t
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from datasets import Dataset
 from langchain.callbacks.manager import CallbackManager, trace_as_chain_group
-from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate
+from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, AIMessagePromptTemplate
 
 from ragas.metrics.base import EvaluationMode, MetricWithLLM
 from ragas.utils import load_as_json
@@ -80,6 +80,8 @@ class ContextRecall(MetricWithLLM):
     name: str = "context_recall"
     evaluation_mode: EvaluationMode = EvaluationMode.qcg
     batch_size: int = 15
+    human_template: HumanMessagePromptTemplate = field(default_factory=lambda: CONTEXT_RECALL_RA)
+    ai_template: AIMessagePromptTemplate = None
 
     def _score_batch(
         self: t.Self,
@@ -100,10 +102,16 @@ class ContextRecall(MetricWithLLM):
             for qstn, gt, ctx in zip(question, ground_truths, contexts):
                 gt = "\n".join(gt) if isinstance(gt, list) else gt
                 ctx = "\n".join(ctx) if isinstance(ctx, list) else ctx
-                human_prompt = CONTEXT_RECALL_RA.format(
-                    question=qstn, context=ctx, answer=gt
+                human_prompt = self.human_template.format(
+                    question=qstn, context=ctx, ground_truth=gt
                 )
-                prompts.append(ChatPromptTemplate.from_messages([human_prompt]))
+                messages = [human_prompt]
+                if self.ai_template is not None:
+                    ai_prompt = self.ai_template.format()
+                    messages.append(ai_prompt)
+                prompts.append(ChatPromptTemplate.from_messages(messages))
+
+            self.logs["prompts"] += prompts
 
             responses: list[list[str]] = []
             results = self.llm.generate(
@@ -111,19 +119,25 @@ class ContextRecall(MetricWithLLM):
                 n=1,
                 callbacks=batch_group,
             )
-            responses = [[i.text for i in r] for r in results.generations]
+            responses = [[i.text.strip() for i in r] for r in results.generations]
+            self.logs["responses"] = responses
             scores = []
             for response in responses:
                 response = load_as_json(response[0])
+                self.logs["response"].append(response)
                 if response:
                     denom = len(response)
+                    self.logs["denominator"].append(denom)
                     numerator = sum(
                         item.get("Attributed").lower() == "yes" for item in response
                     )
+                    self.logs["numerator"].append(numerator)
                     scores.append(numerator / denom)
                 else:
+                    self.logs["denominator"].append(np.nan)
+                    self.logs["numerator"].append(np.nan)
                     scores.append(np.nan)
-
+        self.logs["scores"] += scores
         return scores
 
 
