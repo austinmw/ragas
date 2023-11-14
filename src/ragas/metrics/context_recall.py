@@ -38,7 +38,7 @@ Albert Einstein born in 14 March 1879 was  German-born theoretical physicist, wi
 </example_input>
 
 <example_response>
-Line by line sentence classifications for the given answer (with no ):
+Line by line sentence classifications for the given answer:
 1. Albert Einstein born in 14 March 1879 was  German-born theoretical physicist, widely held to be one of the greatest and most influential scientists of all time. The date of birth of Einstein is mentioned clearly in the context. So [Attributed]
 2. He received the 1921 Nobel Prize in Physics "for his services to theoretical physics. The exact sentence is present in the given context. So [Attributed]
 3. He published 4 papers in 1905. There is no mention about papers he wrote in given the context. So [Not Attributed]
