@@ -83,8 +83,10 @@ class AnswerSimilarity(MetricWithLLM):
             embeddings_2 = np.array(self.embeddings.embed_documents(answers))
 
             # Normalize the embeddings to unit length
-            normalized_embeddings_1 = embeddings_1 / np.linalg.norm(embeddings_1, axis=1, keepdims=True)
-            normalized_embeddings_2 = embeddings_2 / np.linalg.norm(embeddings_2, axis=1, keepdims=True)
+            normalized_embeddings_1 = embeddings_1 / \
+                np.linalg.norm(embeddings_1, axis=1, keepdims=True)
+            normalized_embeddings_2 = embeddings_2 / \
+                np.linalg.norm(embeddings_2, axis=1, keepdims=True)
 
             # Compute the similarity
             similarity = normalized_embeddings_1 @ normalized_embeddings_2.T
